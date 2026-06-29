@@ -10,7 +10,7 @@
 // Also demonstrates explicit asm intrinsics for key lowering steps (shifts, adds).
 
 const std = @import("std");
-const isa = @import("isa");
+const isa = @import("../isa/opcodes.zig");
 // Note: We deliberately avoid importing core/axicore here to prevent cycles.
 // ASM helpers are re-exported or duplicated lightly where needed from axicore.
 
@@ -206,8 +206,9 @@ inline fn asmShlAddX64(a: i64, shift: u6, b: i64) i64 {
 
 inline fn asmShlAddAarch64(a: i64, shift: u6, b: i64) i64 {
     var tmp: i64 = undefined;
-    return asm ("lsl %[tmp], %[a], %[sh]\n\t"
-                "add %[out], %[tmp], %[b]"
+    return asm (
+        \\lsl %[tmp], %[a], %[sh]
+        \\add %[out], %[tmp], %[b]
         : [out] "=r" (-> i64),
           [tmp] "=&r" (tmp),
         : [a] "r" (a),

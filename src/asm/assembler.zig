@@ -28,7 +28,7 @@
 //   try engine.loadProgram(instructions);
 
 const std = @import("std");
-const isa = @import("isa");
+const isa = @import("../isa/opcodes.zig");
 const lower = @import("lower.zig"); // same-dir relative ok within module
 
 pub const AssembleError = error{
@@ -84,7 +84,6 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
         if (std.mem.eql(u8, op_upper, "LOWER")) {
             // Pseudo: LOWER Rdst = expr   or LOWER Rdst expr
             // Delegate to lowerer
-            const rest = line[std.mem.indexOfScalar(u8, line, 'L').? + 5 ..]; // rough after LOWER
             // Better: find '=' or use remaining tokens
             var expr_start: usize = 0;
             var dst_reg: u5 = 0;
@@ -113,7 +112,7 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
 
             // Append lowered, patch the final result to dst_reg if needed (simple: last instr rd = dst if applicable)
             for (lowered.instructions) |instr| {
-                var patched = instr;
+                const patched = instr;
                 // If it's a compute instr with rd, redirect last one? For simplicity just append as-is and set a final mov if needed.
                 // For demo, we accept the temps and note.
                 try instructions.append(patched);
@@ -209,7 +208,7 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
                 // To make full, let's re-scan original for label resolution here is complex.
                 // For demo, assume user uses numeric or we add label dict lookup if imm was symbol.
                 // For now, leave as-is; advanced users use numbers or we enhance parser later.
-                _ = labels; // labels collected, future: if we tokenized label names for jumps.
+                // labels collected for future JMP resolution using label names in jumps.
             },
             else => {},
         }
