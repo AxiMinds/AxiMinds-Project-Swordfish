@@ -4,15 +4,14 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const root_mod = b.createModule(.{
+    // Note: lib build for bridge currently hits 0.16 "outside module path" due to relative ../ in src/bridge when rooted there.
+    // For demo, we build exe (via main.zig) + bench + tests. See docs for llama integration.
+    // const lib = ... (disabled for clean build)
+    _ = b.createModule(.{ // keep for future lib if bridge adjusted
         .root_source_file = b.path("src/bridge/llama_bridge.zig"),
         .target = target,
         .optimize = optimize,
     });
-
-    // Note: lib build for bridge currently hits 0.16 "outside module path" due to relative ../ in src/bridge when rooted there.
-    // For demo, we build exe (via main.zig) + bench + tests. See docs for llama integration.
-    // const lib = ... (disabled for clean build)
 
     const exe = b.addExecutable(.{
         .name = "axinc",
