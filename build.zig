@@ -34,6 +34,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const assembler_mod = b.addModule("assembler", .{
+        .root_source_file = b.path("src/asm/assembler.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
     const engine_mod_m = b.addModule("engine", .{
         .root_source_file = b.path("src/core/engine.zig"),
         .target = target,
@@ -48,6 +53,7 @@ pub fn build(b: *std.Build) void {
     root_module.addImport("core", core_mod);
     root_module.addImport("isa", isa_mod);
     root_module.addImport("asm", asm_mod);
+    root_module.addImport("assembler", assembler_mod);
     root_module.addImport("engine", engine_mod_m);
 
     // ── Core Library (static) ──────────────────────────────────────

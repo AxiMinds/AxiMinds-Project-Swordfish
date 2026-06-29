@@ -3,11 +3,12 @@
 // Run with: zig build bench
 // Exercises AST lowerer + asm intrinsics paths.
 const std = @import("std");
-const core = @import("core/types.zig");
-const axicore = @import("core/axicore.zig");
-const engine = @import("core/engine.zig");
-const isa = @import("isa/opcodes.zig");
-const asm_lower = @import("asm/lower.zig");
+const core = @import("core");
+const axicore = @import("core");
+const engine = @import("engine");
+const isa = @import("isa");
+const asm_lower = @import("asm");
+const assembler = @import("assembler");
 
 pub fn main() !void {
     const allocator = std.heap.page_allocator;
