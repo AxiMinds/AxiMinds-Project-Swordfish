@@ -231,11 +231,12 @@ inline fn asmMixStep(v: u64) u64 {
     const arch = @import("builtin").target.cpu.arch;
     if (arch == .x86_64 or arch == .aarch64) {
         var out: u64 = undefined;
-        _ = asm ("mov %[out], %[v]\n\t"
-                 "shl %[out], 40\n\t"
-                 "add %[out], %[v]\n\t"  // simplified demo of the shift+add spirit
-                 "shl %[v], 8\n\t"
-                 "add %[out], %[v]"
+        _ = asm (
+            \\mov %[out], %[v]
+            \\shl %[out], 40
+            \\add %[out], %[v]
+            \\shl %[v], 8
+            \\add %[out], %[v]
             : [out] "=r" (out),
             : [v] "r" (v),
         );
