@@ -31,19 +31,43 @@ pub fn main() !void {
     defer allocator.free(prog);
     try eng.loadProgram(prog);
 
-    // Run with visible metrics
-    const ran = try eng.executeTap();
-    const stats = eng.getStats();
+    // Real-time metrics loop (simulates running throughout day/night)
+    var total_cycles: u64 = 0;
+    const start = std.time.milliTimestamp();
+    for (0..5) |tick| {
+        const ran = try eng.executeTap();
+        total_cycles += ran;
+        const stats = eng.getStats();
+        const now_ms = std.time.milliTimestamp();
+        const elapsed_s = @as(f64, @floatFromInt(now_ms - start)) / 1000.0;
+        const ips = if (elapsed_s > 0) @as(u64, @intFromFloat(@as(f64, @floatFromInt(total_cycles)) / elapsed_s)) else 0;
 
-    std.debug.print("Executed {d} cycles. R3={d} R4={d}\n", .{ ran, state.regs.getGP(3), state.regs.getGP(4) });
-    std.debug.print("Stats: hit_rate={d:.2} vram={d}MB dream={}\n", .{
-        stats.tricache_overall_hit_rate, stats.vram_usage_mb, stats.dream_mode,
-    });
+        const now = std.time.timestamp();
+        const hour = @mod(@as(u64, @intCast(now / 3600)), 24);
+        const is_night = hour < 6 or hour > 18;
 
-    // Real-time style print (sim day/night)
-    const now = std.time.timestamp();
-    const hour = @mod(@as(u64, @intCast(now / 3600)), 24);
-    std.debug.print("Wall time hour (day/night sim): {d}  AI metrics: IPS~{d} energy_saved={d}\n", .{hour, if (ran > 0) 1_000_000 / ran else 0 , stats.energy_saved });
+        std.debug.print("[T+{d:.1}s] {s} | cycles={d} IPS={d} hit={d:.1}% energy={d} dream={}\n", .{
+            elapsed_s,
+            if (is_night) "NIGHT" else "DAY",
+            total_cycles,
+            ips,
+            stats.tricache_overall_hit_rate * 100,
+            stats.energy_saved,
+            stats.dream_mode,
+        });
 
-    std.debug.print("Demo complete. (See README for full metrics, axiASM.)\n", .{});
+        // Industry AI specific metrics
+        const learn_rate = if (elapsed_s > 0) @as(f64, @floatFromInt(stats.custom_opcodes)) / elapsed_s else 0;
+        std.debug.print("  AI: learn_rate={d:.2}/s fused={d} vram_mb={d} ctx_eff~{d:.0}%\n", .{
+            learn_rate,
+            stats.total_fused_ops,
+            stats.vram_usage_mb,
+            if (stats.total_cycles > 0) @as(f64, @floatFromInt(stats.total_instructions)) / @as(f64, @floatFromInt(stats.total_cycles)) * 100 else 0,
+        });
+
+        // simple "sleep" for demo
+        std.time.sleep(200 * std.time.ns_per_ms);
+    }
+
+    std.debug.print("Demo complete with real-time + AI industry metrics. See README/docs.\n", .{});
 }
