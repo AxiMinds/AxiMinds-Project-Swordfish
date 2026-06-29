@@ -172,7 +172,9 @@ pub const TricacheL3 = struct {
         // global age bump (per review, hacky; improved clock/pressure suggested)
         self.global_age +|= 1;
         if (self.global_age % 1024 == 0) {
-            for (self.entries[0..self.capacity]) |*e| if (e.valid) e.age +|= 1;
+            for (self.entries[0..self.capacity]) |*e| {
+                if (e.valid) e.age +|= 1;
+            }
         }
     }
 };
@@ -586,7 +588,7 @@ pub const HwDispatch = struct {
     pub fn detect() HwDispatch {
         // TODO: real detection (cpuid, cudaGetDevice, /dev/rknpu etc.)
         // For now default to scalar (safe everywhere). Reviews noted RKNN2/NEON/CUDA priority.
-        var d = HwDispatch{ .primary = .scalar };
+        const d = HwDispatch{ .primary = .scalar };
         // Placeholder: could query builtin or env
         return d;
     }
@@ -634,7 +636,7 @@ inline fn asmShlAddAarch64(a: i64, shift: u6, b: i64) i64 {
 }
 
 pub fn asmHashMix(h: u64, x: u64) u64 {
-    var res = h ^ x;
+    const res = h ^ x;
     const arch = @import("builtin").target.cpu.arch;
     if (arch == .x86_64 or arch == .aarch64) {
         var out: u64 = undefined;
