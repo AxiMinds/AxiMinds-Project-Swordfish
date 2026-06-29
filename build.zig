@@ -18,6 +18,27 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // Named modules for cross-package imports (required in Zig 0.16 for "outside module path")
+    const core_mod = b.addModule("core", .{
+        .root_source_file = b.path("src/core/types.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const isa_mod = b.addModule("isa", .{
+        .root_source_file = b.path("src/isa/opcodes.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const asm_mod = b.addModule("asm", .{
+        .root_source_file = b.path("src/asm/lower.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    root_module.addImport("core", core_mod);
+    root_module.addImport("isa", isa_mod);
+    root_module.addImport("asm", asm_mod);
+
     // ── Core Library (static) ──────────────────────────────────────
     const lib = b.addLibrary(.{
         .name = "axinc",
