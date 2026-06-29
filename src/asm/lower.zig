@@ -81,7 +81,7 @@ pub fn lowerExpression(allocator: std.mem.Allocator, source: []const u8) LowerEr
     var out_list = std.ArrayList(isa.Instruction).init(allocator);
     errdefer out_list.deinit();
 
-    const result_reg = try lowerNode(allocator, &ast, start_node, &mut out_list, &mut tmp_regs);
+    const result_reg = try lowerNode(allocator, &ast, start_node, &out_list, &tmp_regs);
 
     return Lowered{
         .instructions = try out_list.toOwnedSlice(),
