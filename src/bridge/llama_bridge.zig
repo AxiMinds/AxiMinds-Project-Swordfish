@@ -4,9 +4,9 @@
 // See full vision + fixes in Conv-20260628-1155pm.md
 // (AST/ASM modernized primitives available to hosted NC)
 const std = @import("std");
-const core = @import("../core/types.zig");
-const engine_mod = @import("../core/engine.zig");
-const isa = @import("../isa/opcodes.zig");
+const core = @import("core");
+const engine_mod = @import("engine");
+const isa = @import("isa");
 const log = std.log.scoped(.axinc_bridge);
 
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
