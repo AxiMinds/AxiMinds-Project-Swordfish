@@ -46,7 +46,7 @@ pub const Lowered = struct {
 pub fn lowerExpression(allocator: std.mem.Allocator, source: []const u8) LowerError!Lowered {
     // Build a tiny valid Zig snippet containing the expression.
     // "_ = ( <expr> );"
-    var wrapped = std.ArrayListUnmanaged(u8){};
+    var wrapped: std.ArrayListUnmanaged(u8) = .empty;
     defer wrapped.deinit(allocator);
     wrapped.appendSlice(allocator, "_ = (") catch return error.ParseFailed;
     wrapped.appendSlice(allocator, source) catch return error.ParseFailed;

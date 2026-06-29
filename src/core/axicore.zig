@@ -614,13 +614,8 @@ pub fn asmShlAdd(a: i64, shift: u6, b: i64) i64 {
 }
 
 inline fn asmShlAddX64(a: i64, shift: u6, b: i64) i64 {
-    const sc: u64 = @as(u64, 1) << @min(shift, 3);
-    return asm ("lea %[out], [%[a] + %[b] * %[sc]]"
-        : [out] "=r" (-> i64),
-        : [a] "r" (a),
-          [b] "r" (b),
-          [sc] "r" (sc),
-    );
+    // Portable for stability in 0.16 asm parsing; real lea can be used with comptime scale
+    return (a << shift) +% b;
 }
 
 inline fn asmShlAddAarch64(a: i64, shift: u6, b: i64) i64 {

@@ -44,7 +44,7 @@ pub const AssembleError = error{
 const MAX_INSTR = 4096; // reasonable for demo
 
 pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError![]isa.Instruction {
-    var instructions = std.ArrayListUnmanaged(isa.Instruction){};
+    var instructions: std.ArrayListUnmanaged(isa.Instruction) = .empty;
     defer instructions.deinit(allocator);
 
     var labels = std.StringHashMap(u16).init(allocator); // label -> pc addr

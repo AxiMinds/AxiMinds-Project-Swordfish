@@ -294,7 +294,7 @@ pub const Engine = struct {
                 const hid: u8 = @truncate(instr.imm9 & 0x7);
                 // Functional stub: mark pending and simulate callback dispatch
                 self.state.regs.flags.hook_pending = true;
-                self.state.hooks_active |= (@as(u32, 1) << hid);
+                self.state.hooks_active |= (@as(u32, 1) << @as(u5, @intCast(hid & 0x1f)));
                 log.info("[axiNC] HOOK id={d} (stub dispatch)", .{hid});
                 self.state.regs.pc += 1;
             },
