@@ -53,7 +53,7 @@ pub const Engine = struct {
         if (config.trace_enabled) {
             trace = try allocator.alloc(TraceEntry, config.trace_buffer_size);
         }
-        const ctx = try axicore.AxicoreContext.init(allocator);
+        var ctx = try axicore.AxicoreContext.init(allocator);
         var eng = Engine{
             .state = state,
             .axicore_ctx = ctx,
