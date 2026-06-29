@@ -4,7 +4,7 @@
 // Exercises AST lowerer + asm intrinsics paths.
 const std = @import("std");
 const core = @import("core");
-const axicore = @import("core");
+const axicore = @import("axicore");
 const engine = @import("engine");
 const isa = @import("isa");
 const asm_lower = @import("asm");

@@ -39,6 +39,12 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const axicore_mod = b.addModule("axicore", .{
+        .root_source_file = b.path("src/core/axicore.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    axicore_mod.addImport("core", core_mod);
     const engine_mod_m = b.addModule("engine", .{
         .root_source_file = b.path("src/core/engine.zig"),
         .target = target,
@@ -58,6 +64,7 @@ pub fn build(b: *std.Build) void {
     root_module.addImport("asm", asm_mod);
     root_module.addImport("assembler", assembler_mod);
     root_module.addImport("engine", engine_mod_m);
+    root_module.addImport("axicore", axicore_mod);
 
     // ── Core Library (static) ──────────────────────────────────────
     const lib = b.addLibrary(.{
@@ -124,6 +131,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = .ReleaseFast,
     });
+    bench_mod.addImport("core", core_mod);
+    bench_mod.addImport("isa", isa_mod);
+    bench_mod.addImport("asm", asm_mod);
+    bench_mod.addImport("assembler", assembler_mod);
+    bench_mod.addImport("axicore", axicore_mod);
     const bench = b.addExecutable(.{
         .name = "axinc-bench",
         .root_module = bench_mod,
