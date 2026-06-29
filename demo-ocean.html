@@ -7,6 +7,7 @@
 <canvas id="ocean" width="800" height="400"></canvas>
 <div class="pane">NC Terminal (stub): <pre id="nc-log">DPIX 10,20 coral\nMUL R3,R1,R2 cache hit\nLEARN success</pre></div>
 <div>Patterns learned: <span id="pat">42</span> | Energy saved: <span id="energy">128k</span></div>
+<div id="metrics" style="margin-top:8px;font-family:monospace">Real-time: IPS=124k | AI: learn=2.3/s | Day/Night: DAY | ctx=78%</div>
 <script>
 const c = document.getElementById('ocean'); const ctx=c.getContext('2d');
 function draw(){ ctx.fillStyle='#002244';ctx.fillRect(0,0,800,400);
@@ -15,7 +16,13 @@ ctx.fillStyle='#ffaa66'; ctx.fillRect(200+Math.cos(Date.now()/900)*100,120,24,16
 requestAnimationFrame(draw);
 }
 draw();
-setInterval(()=>{ document.getElementById('pat').textContent = 42 + Math.floor(Math.sin(Date.now()/2000)*5); }, 800);
+setInterval(()=>{ 
+    document.getElementById('pat').textContent = 42 + Math.floor(Math.sin(Date.now()/2000)*5);
+    const m = document.getElementById('metrics');
+    const h = new Date().getHours();
+    const isNight = h < 6 || h > 18;
+    m.textContent = `Real-time: IPS=${Math.floor(100000 + Math.sin(Date.now()/1000)*20000)} | AI: learn=${(1+Math.random()).toFixed(1)}/s | ${isNight?'NIGHT':'DAY'} | ctx=${50 + Math.floor(Math.random()*40)}%`;
+}, 800);
 console.log('Ocean demo stub. Hook to real /axinc or Ollama per Conv-20260628.');
 </script>
 <p>See Conv-20260628-1155pm.md + src/ for real engine. Run `zig build run` for NC execution.</p>
