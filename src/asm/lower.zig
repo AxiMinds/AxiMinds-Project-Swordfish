@@ -10,7 +10,7 @@
 // Also demonstrates explicit asm intrinsics for key lowering steps (shifts, adds).
 
 const std = @import("std");
-const isa = @import("../isa/opcodes.zig");
+const isa = @import("isa");
 // Note: We deliberately avoid importing core/axicore here to prevent cycles.
 // ASM helpers are re-exported or duplicated lightly where needed from axicore.
 

@@ -28,8 +28,8 @@
 //   try engine.loadProgram(instructions);
 
 const std = @import("std");
-const isa = @import("../isa/opcodes.zig");
-const lower = @import("lower.zig");
+const isa = @import("isa");
+const lower = @import("lower.zig"); // same-dir relative ok within module
 
 pub const AssembleError = error{
     InvalidSyntax,

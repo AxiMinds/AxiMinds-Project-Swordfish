@@ -50,6 +50,9 @@ pub fn build(b: *std.Build) void {
     engine_mod_m.addImport("core", core_mod);
     engine_mod_m.addImport("isa", isa_mod);
 
+    asm_mod.addImport("isa", isa_mod);
+    assembler_mod.addImport("isa", isa_mod);
+
     root_module.addImport("core", core_mod);
     root_module.addImport("isa", isa_mod);
     root_module.addImport("asm", asm_mod);
