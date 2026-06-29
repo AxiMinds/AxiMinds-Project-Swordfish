@@ -62,6 +62,64 @@ Zig 0.16.0 features in use:
 - std.zig.Ast for expression → ISA lowering (LANG / spells)
 - Explicit `asm` blocks and arch intrinsics in ShiftAdd / hash / vector paths.
 
+## Installation (Zig 0.16.0 + ZLS 0.16.0)
+
+1. Download Zig 0.16.0: https://ziglang.org/download/0.16.0/
+   - Linux: zig-x86_64-linux-0.16.0.tar.xz
+2. ZLS (optional, for IDE): https://github.com/zigtools/zls/releases (0.16.0)
+3. Extract and add to PATH.
+
+## Configuration
+
+- Edit src/core/types.zig for DEFAULT_MEM_SIZE, canvas size, etc.
+- No runtime config file; recompile for changes.
+- Build options in build.zig (optimize, target).
+
+## Build, Test, Run, Bench
+
+Use your zig 0.16:
+
+zig build
+zig build test
+zig build run     # real-time metrics demo + axiASM
+zig build bench
+
+See docs/ for details.
+
+## axiASM Assembler
+
+Full textual assembler in src/asm/assembler.zig on top of lowerer.
+
+See docs/axiASM.md
+
+Example in main and bench.
+
+## Metrics
+
+Real-time (wall time day/night) + AI industry (IPS, learn rate, energy eff, ctx util).
+
+Visible in CLI loop and demo-ocean.html .
+
+See docs/metrics.md
+
+## Issues Encountered Building with 0.16.0 (documented)
+
+- Build API: addStaticLibrary -> addLibrary + createModule (fixed)
+- Module path restriction: relative ../ from subdir root causes "import of file outside module path" for bridge. Workaround: src/main.zig with src/ relative + disable lib build in current build.zig
+- File ownership in modules when using multiple addModule for overlapping .zig files (core/engine conflict). Workaround: minimal build.zig without overlapping named roots.
+- ArrayList API: .init(allocator) -> .empty + append(allocator, ) or Unmanaged in 0.16 (fixed in asm/lower/assembler)
+- Ast.Index is enum(u32) not usize: use @intFromEnum for indexing nodes.items (fixed)
+- asm syntax: multi-line strings with \n\t and "i" immediate for runtime shift require split \\ strings and "r" constraint (fixed)
+- i32 literal 0xFF00FF00 overflow: use @bitCast(u32) (fixed)
+- Error set inference cycle in engine.execute <-> executeCustom (mutual calls): used _ = catch {} for demo (fixed for build)
+- Unused vars, const promotion, shadowing (imm) fixed per 0.16 stricter.
+- Some asm templates (lea with runtime scale) not parsing; fell back to portable.
+
+Full clean build for lib+bridge requires further restructuring (e.g. flat src or full named + reexports). See git log for all changes. Current build succeeds for exe/main + bench + tests.
+
+See docs/install.md equivalent in this README.
+
+
 ## License
 Proprietary — AxiMinds / Broadband Evolution LLC. (Per conversation history)
 
