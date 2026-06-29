@@ -46,12 +46,12 @@ pub const Lowered = struct {
 pub fn lowerExpression(allocator: std.mem.Allocator, source: []const u8) LowerError!Lowered {
     // Build a tiny valid Zig snippet containing the expression.
     // "_ = ( <expr> );"
-    var wrapped = std.ArrayList(u8).init(allocator);
-    defer wrapped.deinit();
-    wrapped.appendSlice("_ = (") catch return error.ParseFailed;
-    wrapped.appendSlice(source) catch return error.ParseFailed;
-    wrapped.appendSlice(");") catch return error.ParseFailed;
-    wrapped.append(0) catch return error.ParseFailed; // sentinel after );
+    var wrapped = std.ArrayListUnmanaged(u8){};
+    defer wrapped.deinit(allocator);
+    wrapped.appendSlice(allocator, "_ = (") catch return error.ParseFailed;
+    wrapped.appendSlice(allocator, source) catch return error.ParseFailed;
+    wrapped.appendSlice(allocator, ");") catch return error.ParseFailed;
+    wrapped.append(allocator, 0) catch return error.ParseFailed; // sentinel after );
 
     const content_len = wrapped.items.len - 1;
     const src0: [:0]const u8 = wrapped.items[0..content_len :0];
@@ -255,11 +255,7 @@ pub fn demoLower(allocator: std.mem.Allocator) !void {
     defer lowered.deinit();
     std.debug.print("AST lower of '{s}' -> {d} instrs, final R{d}\n", .{ src, lowered.instructions.len, lowered.result_reg });
     for (lowered.instructions, 0..) |ins, i| {
-        std.debug.print("  [{d}] ", .{i});
-        var buf: [64]u8 = undefined;
-        var fbs = std.io.fixedBufferStream(&buf);
-        ins.format(fbs.writer()) catch {};
-        std.debug.print("{s}\n", .{fbs.getWritten()});
+        std.debug.print("  [{d}] opcode={d}\n", .{i, ins.opcode});
     }
 }
 

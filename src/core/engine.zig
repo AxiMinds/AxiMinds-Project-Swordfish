@@ -236,7 +236,7 @@ pub const Engine = struct {
                 const x: u32 = @truncate(@as(u64, @bitCast(self.state.regs.getGP(instr.rs1))));
                 const y: u32 = @truncate(@as(u64, @bitCast(self.state.regs.getGP(instr.rs2))));
                 // For demo, write a small block of constant color
-                var data: [16]i32 = [_]i32{0xFF00FF00} ** 16; // green-ish
+                var data: [16]i32 = [_]i32{@bitCast(@as(u32, 0xFF00FF00))} ** 16; // green-ish
                 self.state.canvas.writeBlock(x, y, 4, 4, &data);
                 log.info("[axiNC] DBLK block write", .{});
                 self.state.regs.pc += 1;

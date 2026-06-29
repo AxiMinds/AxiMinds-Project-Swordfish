@@ -44,8 +44,8 @@ pub const AssembleError = error{
 const MAX_INSTR = 4096; // reasonable for demo
 
 pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError![]isa.Instruction {
-    var instructions = std.ArrayList(isa.Instruction).init(allocator);
-    errdefer instructions.deinit();
+    var instructions = std.ArrayListUnmanaged(isa.Instruction){};
+    defer instructions.deinit(allocator);
 
     var labels = std.StringHashMap(u16).init(allocator); // label -> pc addr
     defer labels.deinit();
@@ -115,7 +115,7 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
                 const patched = instr;
                 // If it's a compute instr with rd, redirect last one? For simplicity just append as-is and set a final mov if needed.
                 // For demo, we accept the temps and note.
-                try instructions.append(patched);
+                instructions.append(allocator, patched) catch return error.TooManyInstructions;
                 pc += 1;
                 if (instructions.items.len > MAX_INSTR) return error.TooManyInstructions;
             }
@@ -186,7 +186,7 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
             },
         }
 
-        try instructions.append(instr);
+        instructions.append(allocator, instr) catch return error.TooManyInstructions;
         pc += 1;
         if (instructions.items.len > MAX_INSTR) return error.TooManyInstructions;
     }

@@ -619,7 +619,7 @@ inline fn asmShlAddX64(a: i64, shift: u6, b: i64) i64 {
         : [out] "=r" (-> i64),
         : [a] "r" (a),
           [b] "r" (b),
-          [sc] "i" (sc),
+          [sc] "r" (sc),
     );
 }
 
@@ -630,7 +630,7 @@ inline fn asmShlAddAarch64(a: i64, shift: u6, b: i64) i64 {
           [tmp] "=&r" (tmp),
         : [a] "r" (a),
           [b] "r" (b),
-          [sh] "i" (shift),
+          [sh] "r" (shift),
         : "cc"
     );
 }
