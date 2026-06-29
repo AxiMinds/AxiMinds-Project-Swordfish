@@ -1,0 +1,10 @@
+zig-cache/
+zig-out/
+.zig-cache/
+*.o
+*.a
+*.so
+*.dSYM/
+.DS_Store
+*.log
+tmp/
