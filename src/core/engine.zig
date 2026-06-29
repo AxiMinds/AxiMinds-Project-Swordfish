@@ -308,7 +308,9 @@ pub const Engine = struct {
     fn executeCustom(self: *Engine, instr: isa.Instruction) !void {
         const slot = instr.customSlot() orelse return error.CustomOpcodeNotFound;
         if (self.custom_registry.expand(slot)) |seq| {
-            for (seq) |si| try self.execute(si);
+            for (seq) |si| {
+            self.execute(si) catch |e| return e;
+        }
         }
     }
 

@@ -50,8 +50,8 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
     var labels = std.StringHashMap(u16).init(allocator); // label -> pc addr
     defer labels.deinit();
 
-    var pending_labels = std.ArrayList([]const u8).init(allocator);
-    defer pending_labels.deinit();
+    var pending_labels: std.ArrayListUnmanaged([]const u8) = .empty;
+    defer pending_labels.deinit(allocator);
 
     var lines = std.mem.splitScalar(u8, source, '\n');
     var pc: u16 = 0;
@@ -65,7 +65,7 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
         if (std.mem.endsWith(u8, line, ":")) {
             const name = std.mem.trim(u8, line[0 .. line.len - 1], " \t");
             if (name.len > 0) {
-                try pending_labels.append(name);
+                pending_labels.append(allocator, name) catch return error.TooManyInstructions;
             }
             continue;
         }

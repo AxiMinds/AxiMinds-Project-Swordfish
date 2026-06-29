@@ -65,7 +65,7 @@ pub fn lowerExpression(allocator: std.mem.Allocator, source: []const u8) LowerEr
     // For "_ = (expr);" the structure is usually a .simple_var_decl whose init is our expr.
     var expr_node: ?std.zig.Ast.Node.Index = null;
     for (root_decls) |decl| {
-        const tag = ast.nodes.items(.tag)[decl];
+        const tag = ast.nodes.items(.tag)[@intFromEnum(decl)];
         if (tag == .simple_var_decl) {
             const d = ast.nodes.items(.data)[decl];
             if (d.rhs != 0) {
