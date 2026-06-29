@@ -34,10 +34,21 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const engine_mod_m = b.addModule("engine", .{
+        .root_source_file = b.path("src/core/engine.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    // Wire deps so submodules can resolve their relatives and named
+    // (engine needs core/isa etc for its own imports)
+    engine_mod_m.addImport("core", core_mod);
+    engine_mod_m.addImport("isa", isa_mod);
 
     root_module.addImport("core", core_mod);
     root_module.addImport("isa", isa_mod);
     root_module.addImport("asm", asm_mod);
+    root_module.addImport("engine", engine_mod_m);
 
     // ── Core Library (static) ──────────────────────────────────────
     const lib = b.addLibrary(.{
