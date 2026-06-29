@@ -4,7 +4,7 @@
 // AST lowering support (std.zig.Ast) for expressions -> instruction sequences
 // (plausible for LANG grammar and Book of Spells). + ASM intrinsics used in lowering.
 const std = @import("std");
-const core = @import("types.zig");
+const core = @import("../core/types.zig");
 const log = std.log.scoped(.axinc_isa);
 
 // Instruction format: 32-bit
@@ -71,8 +71,8 @@ pub const Builder = struct {
     pub fn rrr(op: Opcode, rd: u5, rs1: u5, rs2: u5) Instruction {
         return .{ .opcode = @intFromEnum(op), .rd = rd, .rs1 = rs1, .rs2 = rs2, .imm9 = 0 };
     }
-    pub fn rri(op: Opcode, rd: u5, rs1: u5, imm: u9) Instruction {
-        return .{ .opcode = @intFromEnum(op), .rd = rd, .rs1 = rs1, .rs2 = 0, .imm9 = imm };
+    pub fn rri(op: Opcode, rd: u5, rs1: u5, immv: u9) Instruction {
+        return .{ .opcode = @intFromEnum(op), .rd = rd, .rs1 = rs1, .rs2 = 0, .imm9 = immv };
     }
     pub fn r(op: Opcode, rd: u5) Instruction {
         return .{ .opcode = @intFromEnum(op), .rd = rd, .rs1 = 0, .rs2 = 0, .imm9 = 0 };
@@ -87,7 +87,7 @@ pub const Builder = struct {
     pub fn add(rd: u5, rs1: u5, rs2: u5) Instruction { return rrr(.ADD, rd, rs1, rs2); }
     pub fn mul(rd: u5, rs1: u5, rs2: u5) Instruction { return rrr(.MUL, rd, rs1, rs2); }
     pub fn mov(rd: u5, rs: u5) Instruction { return rri(.MOV, rd, rs, 0); }
-    pub fn movi(rd: u5, imm: u9) Instruction { return rri(.MOVI, rd, 0, imm); }
+    pub fn movi(rd: u5, immv: u9) Instruction { return rri(.MOVI, rd, 0, immv); }
     pub fn halt() Instruction { return bare(.HALT); }
     pub fn yield_() Instruction { return bare(.YIELD); }
     pub fn dream(cycles: u9) Instruction { return imm(.DREAM, cycles); }
