@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>AxiMinds-Inception Ocean Demo (Stub)</title>
+<style>body{font-family:sans-serif;background:#001122;color:#aaffff} canvas{border:1px solid #4488aa} .pane{background:#002244;padding:8px;margin:4px} </style>
+</head><body>
+<h1>AxiMinds Swordfish — Live Ocean (HTML stub from Conv reviews)</h1>
+<p>Real backend connects to Ollama + axiNC (Zig). For now, simulated but matches spec (sea grass = KGDB high-pri memories, fish = hosted LLM).</p>
+<canvas id="ocean" width="800" height="400"></canvas>
+<div class="pane">NC Terminal (stub): <pre id="nc-log">DPIX 10,20 coral\nMUL R3,R1,R2 cache hit\nLEARN success</pre></div>
+<div>Patterns learned: <span id="pat">42</span> | Energy saved: <span id="energy">128k</span></div>
+<script>
+const c = document.getElementById('ocean'); const ctx=c.getContext('2d');
+function draw(){ ctx.fillStyle='#002244';ctx.fillRect(0,0,800,400);
+ctx.fillStyle='#44aa77'; for(let i=0;i<12;i++){ ctx.fillRect(40+i*60, 300-Math.sin(Date.now()/400+i)*30, 8, 60); }
+ctx.fillStyle='#ffaa66'; ctx.fillRect(200+Math.cos(Date.now()/900)*100,120,24,16); // fish/LLM
+requestAnimationFrame(draw);
+}
+draw();
+setInterval(()=>{ document.getElementById('pat').textContent = 42 + Math.floor(Math.sin(Date.now()/2000)*5); }, 800);
+console.log('Ocean demo stub. Hook to real /axinc or Ollama per Conv-20260628.');
+</script>
+<p>See Conv-20260628-1155pm.md + src/ for real engine. Run `zig build run` for NC execution.</p>
+</body></html>
