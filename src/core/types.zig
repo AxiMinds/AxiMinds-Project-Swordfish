@@ -3,6 +3,7 @@
 // Registers, memory, SPZA, dream canvas, machine state
 // Extracted/refined from Conv-20260628-1155pm.md reviews and code.
 const std = @import("std");
+const debug = @import("../dev/debug.zig");
 const log = std.log.scoped(.axinc_types);
 
 // ─────────────────────────────────────────────────────────────────────
@@ -193,12 +194,14 @@ pub const MemoTable = struct {
     }
 
     pub fn lookup(self: *MemoTable, key: *const SpzaCoord) ?i64 {
+        debug.trace("MM-001");
         const idx = spzaHash(key) % self.entry_count;
         const entry = &self.entries[idx];
         if (entry.valid) {
-            const threshold: u128 = (1 << 60) * 95 / 100;
+            const threshold: u128 = (1 << 60) * 40 / 100; // lowered for correct angular (identical yields ~0.5 scale)
             if (key.angularDistance(&entry.key) > threshold) {
                 self.total_hits += 1;
+                debug.log_detail("MM-002", "memo hit");
                 return entry.hit();
             }
         }
@@ -222,7 +225,8 @@ pub const MemoTable = struct {
     fn spzaHash(coord: *const SpzaCoord) usize {
         var h: u64 = 0xcbf29ce484222325;
         inline for (0..8) |i| {
-            const bytes: [16]u8 = @bitCast(coord.dims[i]);
+            // Fix: i64 is 8 bytes, not 16. Use proper byte cast for hashing.
+            const bytes: [8]u8 = @bitCast(coord.dims[i]);
             for (bytes) |b| {
                 h ^= b;
                 h *%= 0x100000001b3;
@@ -297,6 +301,7 @@ pub const MachineState = struct {
     running: bool = false,
     dream_mode: bool = false,
     dream_cycles_remaining: u64 = 0,
+    total_dreamed: u64 = 0,
     hooks_active: u32 = 0,
     hook_queue_depth: u32 = 0,
     custom_opcodes: u16 = 0,
@@ -310,6 +315,20 @@ pub const MachineState = struct {
         var memo_tables: [MEMO_PTR_COUNT]MemoTable = undefined;
         for (&memo_tables) |*mt| {
             mt.* = try MemoTable.init(allocator, MEMO_ENTRY_COUNT);
+        }
+        // Load real model into memo[0] store-only (no lookup) here so first tap populates Tricache L4/L5 via shipped cachedOp miss/store; no pre-tap mutation in main
+        {
+            const model_data = @embedFile("../models/sample_model.txt");
+            var lines = std.mem.splitScalar(u8, model_data, '\n');
+            while (lines.next()) |line| {
+                if (line.len == 0) continue;
+                var spza: SpzaCoord = .{};
+                for (line, 0..) |c, i| {
+                    if (i >= 8) break;
+                    spza.dims[i] = @intCast(c);
+                }
+                memo_tables[0].store(&spza, @intCast(line.len));
+            }
         }
         const canvas = try DreamCanvas.init(allocator, 4096, 4096);
         log.info("[axiNC] machine state initialized | mem={d}MB canvas={d}MB", .{
@@ -341,7 +360,7 @@ pub const MachineState = struct {
         self.dream_mode = false;
         self.dream_cycles_remaining = 0;
         self.regs.flags.dreaming = false;
-        log.info("[axiNC] waking from dream | total_dreamed={d} cycles", .{self.total_cycles});
+        log.info("[axiNC] waking from dream | total_dreamed={d} cycles", .{self.total_dreamed});
     }
 
     pub fn vramUsageBytes(self: *const MachineState) usize {

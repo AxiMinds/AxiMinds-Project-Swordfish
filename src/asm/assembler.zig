@@ -39,6 +39,7 @@ pub const AssembleError = error{
     UnknownLabel,
     LowererFailed,
     TooManyInstructions,
+    OutOfMemory,
 };
 
 const MAX_INSTR = 4096; // reasonable for demo
@@ -53,13 +54,21 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
     var pending_labels: std.ArrayListUnmanaged([]const u8) = .empty;
     defer pending_labels.deinit(allocator);
 
+    var pending_label_jumps: std.ArrayListUnmanaged(struct { idx: u16, name: []const u8 }) = .empty;
+    defer pending_label_jumps.deinit(allocator);
+
     var lines = std.mem.splitScalar(u8, source, '\n');
     var pc: u16 = 0;
 
     // First pass: parse instructions, collect labels, expand basic
     while (lines.next()) |raw_line| {
-        const line = std.mem.trim(u8, raw_line, " \t\r");
+        var line = std.mem.trim(u8, raw_line, " \t\r");
         if (line.len == 0 or line[0] == ';') continue;
+        // Strip inline comments for deeper validation programs
+        if (std.mem.indexOfScalar(u8, line, ';')) |semi| {
+            line = std.mem.trim(u8, line[0..semi], " \t");
+        }
+        if (line.len == 0) continue;
 
         // Label?
         if (std.mem.endsWith(u8, line, ":")) {
@@ -79,7 +88,8 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
         // Parse instruction or pseudo
         var parts = std.mem.tokenizeAny(u8, line, " \t,");
         const op_str = parts.next() orelse continue;
-        const op_upper = toUpper(op_str);
+        const op_upper_buf = toUpper(op_str);
+        const op_upper = op_upper_buf[0..@min(op_str.len, 32)];
 
         if (std.mem.eql(u8, op_upper, "LOWER")) {
             // Pseudo: LOWER Rdst = expr   or LOWER Rdst expr
@@ -121,7 +131,7 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
             }
             // Optionally emit MOV to desired dst
             if (lowered.result_reg != dst_reg) {
-                try instructions.append(isa.Builder.rri(.MOV, dst_reg, lowered.result_reg, 0));
+                try instructions.append(allocator, isa.Builder.rri(.MOV, dst_reg, lowered.result_reg, 0));
                 pc += 1;
             }
             continue;
@@ -149,8 +159,8 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
                 if (arg_count >= 2) instr.rs1 = try parseReg(args[1]);
                 if (arg_count >= 3) instr.rs2 = try parseReg(args[2]);
             },
-            // rri / with imm
-            .MOVI, .SHL, .SHR, .DREAM, .JMP, .JZ, .JNZ, .JN, .JNN, .JC, .HOOK, .MOV => {
+            // rri / with imm (rd + imm or rd + reg)
+            .MOVI, .SHL, .SHR, .MOV => {
                 if (arg_count >= 1) instr.rd = try parseReg(args[0]);
                 if (arg_count >= 2) {
                     if (std.ascii.isDigit(args[1][0]) or args[1][0] == '-') {
@@ -159,15 +169,37 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
                         instr.rs1 = try parseReg(args[1]);
                     }
                 }
-                if (arg_count >= 3 and opcode == .SHL or opcode == .SHR) {
+                if (arg_count >= 3 and (opcode == .SHL or opcode == .SHR)) {
                     instr.imm9 = try parseImm9(args[2]);
                 }
+            },
+            // pure imm or control with imm only (DREAM, JMP family, HOOK)
+            .DREAM, .JMP, .JZ, .JNZ, .JN, .JNN, .JC, .HOOK => {
+                if (arg_count >= 1) {
+                    const a = args[0];
+                    if (parseImm9(a)) |imm| {
+                        instr.imm9 = imm;
+                    } else |_| {
+                        if (labels.get(a)) |target_pc| {
+                            // support already-seen labels (back jumps) as name
+                            instr.imm9 = @intCast(target_pc);
+                        } else {
+                            // forward, record for resolution after all labels seen
+                            pending_label_jumps.append(allocator, .{ .idx = pc, .name = a }) catch return error.TooManyInstructions;
+                            instr.imm9 = 0;
+                        }
+                    }
+                }
+            },
+            .LANG => {
+                if (arg_count >= 1) instr.rd = try parseReg(args[0]);
+                if (arg_count >= 2) instr.imm9 = try parseImm9(args[1]);
             },
             // bare or special
             .HALT, .WAKE, .NOP, .RET, .YIELD => {
                 // no args
             },
-            .LOAD, .STOR, .PUSH, .POP, .EMIT, .LEARN, .FUSE, .LANG, .INTRO, .MUTATE, .DBLK, .DREAD, .DCLEAR, .DRESIZE, .SLOC, .SDST, .SROU, .SMEM, .SSTO, .SNRM, .VLOAD, .VSTORE, .VSPLAT, .VMAP, .VRED, .VDOT, .MEMO, .MLUT, .MCLR, .POLL, .SEND, .RECV, .HWAIT, .CALL, .INC, .DEC, .NEG, .CMP, .NOT, .DIV, .MOD => {
+            .LOAD, .STOR, .PUSH, .POP, .EMIT, .LEARN, .FUSE, .INTRO, .MUTATE, .DBLK, .DREAD, .DCLEAR, .DRESIZE, .SLOC, .SDST, .SROU, .SMEM, .SSTO, .SNRM, .VLOAD, .VSTORE, .VSPLAT, .VMAP, .VRED, .VDOT, .MEMO, .MLUT, .MCLR, .POLL, .SEND, .RECV, .HWAIT, .CALL, .INC, .DEC, .NEG, .CMP, .NOT, .DIV, .MOD => {
                 // generic parsing
                 if (arg_count >= 1) {
                     if (isRegister(args[0])) {
@@ -196,6 +228,15 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
         try labels.put(name, pc);
     }
 
+    // resolve pending label jumps now that full label map is populated (supports forward refs)
+    for (pending_label_jumps.items) |pj| {
+        if (labels.get(pj.name)) |t| {
+            instructions.items[pj.idx].imm9 = @intCast(t);
+        } else {
+            return error.UnknownLabel;
+        }
+    }
+
     // Second pass: resolve labels for jumps (simple absolute for this VM)
     for (instructions.items) |*ins| {
         const op: isa.Opcode = @enumFromInt(ins.opcode);
@@ -214,7 +255,7 @@ pub fn assemble(allocator: std.mem.Allocator, source: []const u8) AssembleError!
         }
     }
 
-    return try instructions.toOwnedSlice();
+    return try instructions.toOwnedSlice(allocator);
 }
 
 fn isRegister(s: []const u8) bool {

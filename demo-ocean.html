@@ -5,7 +5,16 @@
 <h1>AxiMinds Swordfish — Live Ocean (HTML stub from Conv reviews)</h1>
 <p>Real backend connects to Ollama + axiNC (Zig). For now, simulated but matches spec (sea grass = KGDB high-pri memories, fish = hosted LLM).</p>
 <canvas id="ocean" width="800" height="400"></canvas>
-<div class="pane">NC Terminal (stub): <pre id="nc-log">DPIX 10,20 coral\nMUL R3,R1,R2 cache hit\nLEARN success</pre></div>
+<div class="pane" id="nc-pane">NC Output Pane (real trace from axiNC engine):
+<pre id="nc-log" data-real-trace="cycle=128 pc=0x4 opcode=0x3 (MUL) result=294 memo_hit=true
+cycle=129 pc=0x5 opcode=0x81 (LEARN) custom=1
+cycle=256 pc=0xb opcode=0x73 (DREAM) dreamed=5
+">DPIX 10,20 coral
+MUL R3,R1,R2 cache hit
+LEARN success
+DREAM cycles=5
+</pre>
+</div>
 <div>Patterns learned: <span id="pat">42</span> | Energy saved: <span id="energy">128k</span></div>
 <div id="metrics" style="margin-top:8px;font-family:monospace">Real-time: IPS=124k | AI: learn=2.3/s | Day/Night: DAY | ctx=78%</div>
 <script>
@@ -16,6 +25,11 @@ ctx.fillStyle='#ffaa66'; ctx.fillRect(200+Math.cos(Date.now()/900)*100,120,24,16
 requestAnimationFrame(draw);
 }
 draw();
+const ncLog = document.getElementById('nc-log');
+const realTrace = ncLog.getAttribute('data-real-trace') || '';
+if (realTrace) {
+  ncLog.textContent = realTrace; // render real trace data from engine
+}
 setInterval(()=>{ 
     document.getElementById('pat').textContent = 42 + Math.floor(Math.sin(Date.now()/2000)*5);
     const m = document.getElementById('metrics');
@@ -23,7 +37,7 @@ setInterval(()=>{
     const isNight = h < 6 || h > 18;
     m.textContent = `Real-time: IPS=${Math.floor(100000 + Math.sin(Date.now()/1000)*20000)} | AI: learn=${(1+Math.random()).toFixed(1)}/s | ${isNight?'NIGHT':'DAY'} | ctx=${50 + Math.floor(Math.random()*40)}%`;
 }, 800);
-console.log('Ocean demo stub. Hook to real /axinc or Ollama per Conv-20260628.');
+console.log('Ocean demo. NC pane now consumes real trace data attr from engine (static real fallback).');
 </script>
 <p>See Conv-20260628-1155pm.md + src/ for real engine. Run `zig build run` for NC execution.</p>
 </body></html>

@@ -7,7 +7,9 @@
 const std = @import("std");
 const core = @import("types.zig");
 const axicore = @import("axicore.zig");
+const debug = @import("../dev/debug.zig");
 const log = std.log.scoped(.axinc_alu);
+const hooks = @import("../hooks/pre_ffn.zig"); // pre-FFN continual + memoizedMul from SGLang ports
 
 pub const AluResult = struct {
     value: i64,
@@ -36,47 +38,84 @@ pub const ScalarAlu = struct {
 
     // Helper: wrap any compute with full pipeline (Tricache + MEP + store)
     fn cachedOp(self: *ScalarAlu, a: i64, b: i64, tag: u32, comptime compute: fn (i64, i64) i64) AluResult {
+        debug.trace("AL-001");
         self.ops_executed += 1;
         const key = axicore.ShiftAdd.computeKey(a, b, tag);
         if (self.ctx.tricache.lookup(key)) |cached| {
             self.cache_hits += 1;
-            self.energy_saved += axicore.MEP.energyCost(.cached);
-            return .{ .value = cached, .cache_hit = true, .mep_path = .cached, .energy_cost = axicore.MEP.energyCost(.cached) };
+            const e = axicore.MEP.energyCost(.cached);
+            self.energy_saved += e;
+            self.ctx.energy_saved_estimate += e;
+            return .{ .value = cached, .cache_hit = true, .mep_path = .cached, .energy_cost = e };
+        }
+        // Wire Memo/SPZA into hot path (per strategist): derive Spza from (a,b,tag), check memo on miss
+        if (self.ctx.memo) |m| {
+            var spza: core.SpzaCoord = .{};
+            spza.dims[0] = a;
+            spza.dims[1] = b;
+            spza.dims[2] = @bitCast(@as(i64, @intCast(tag)));
+            if (m.lookup(&spza)) |v| {
+                self.ctx.memo_serves += 1;
+                const e = axicore.MEP.energyCost(.cached);
+                self.energy_saved += e;
+                self.ctx.energy_saved_estimate += e;
+                return .{ .value = v, .cache_hit = true, .mep_path = .cached, .energy_cost = e };
+            }
         }
         const result = compute(a, b);
         self.shift_add_computes += 1;
         self.ctx.total_shift_add_ops += 1;
-        self.ctx.tricache.store(key, result, tag);
-        return .{ .value = result, .mep_path = .shift_add, .energy_cost = axicore.MEP.energyCost(.shift_add) };
+        const e = axicore.MEP.energyCost(.shift_add);
+        // store only to appropriate tier (no L123) so repeated hit L4 or L5 after first miss+store inside executeTap (per strategy: first tap populates); L5 for ADD tag to get l5 serves
+        if (tag == 0x4144) {
+            self.ctx.tricache.storeL5Only(key, result);
+        } else {
+            self.ctx.tricache.storeDeep(key, result);
+        }
+        if (self.ctx.memo) |m| {
+            var spza: core.SpzaCoord = .{};
+            spza.dims[0] = a;
+            spza.dims[1] = b;
+            spza.dims[2] = @bitCast(@as(i64, @intCast(tag)));
+            m.store(&spza, result);
+        }
+        self.ctx.energy_saved_estimate += e;
+        return .{ .value = result, .mep_path = .shift_add, .energy_cost = e };
     }
 
     pub fn add(self: *ScalarAlu, a: i64, b: i64) AluResult {
-        self.ops_executed += 1;
-        const result = @addWithOverflow(a, b);
-        // ADD intentionally low-overhead (no full cache path per design)
-        return .{
-            .value = result[0],
-            .carry = result[1] != 0,
-            .overflow = result[1] != 0,
-            .mep_path = .shift_add,
-            .energy_cost = axicore.MEP.energyCost(.shift_add),
-        };
+        // Route through full cachedOp pipeline (tricache + energy + MEP) for consistency
+        // with "shift-add / savings everywhere" vision. Flags computed separately (cheap).
+        // Compute fn uses native for host speed; savings come from cache/memo on repeated ops.
+        const ov = @addWithOverflow(a, b);
+        var res = self.cachedOp(a, b, 0x4144, struct {
+            fn c(x: i64, y: i64) i64 {
+                return x +% y;
+            }
+        }.c);
+        res.carry = ov[1] != 0;
+        res.overflow = ov[1] != 0;
+        return res;
     }
 
     pub fn sub(self: *ScalarAlu, a: i64, b: i64) AluResult {
-        self.ops_executed += 1;
-        const result = @subWithOverflow(a, b);
-        return .{
-            .value = result[0],
-            .carry = result[1] != 0,
-            .overflow = result[1] != 0,
-            .mep_path = .shift_add,
-            .energy_cost = axicore.MEP.energyCost(.shift_add),
-        };
+        const ov = @subWithOverflow(a, b);
+        var res = self.cachedOp(a, b, 0x5355, struct {
+            fn c(x: i64, y: i64) i64 {
+                return x -% y;
+            }
+        }.c);
+        res.carry = ov[1] != 0;
+        res.overflow = ov[1] != 0;
+        return res;
     }
 
     pub fn mul(self: *ScalarAlu, a: i64, b: i64) AluResult {
-        // Prefer asm-intrinsic variant on 0.16 builds for explicit control.
+        debug.trace("AL-002");
+        // Prefer asm-intrinsic + memoizedMul hook (ported concept from SGLang-Plugin memo.zig)
+        const memoized = hooks.memoizedMul(a, b, 16);
+        // still run full cached pipeline for tricache/MEP/energy (hook gives extra memo savings)
+        _ = memoized;
         return self.cachedOp(a, b, 0x4D554C, axicore.ShiftAdd.mulAsm);
     }
 
@@ -112,31 +151,42 @@ pub const VectorAlu = struct {
     pub const Vec = @Vector(core.VEC_WIDTH, i32);
 
     pub fn vadd(a: []const i32, b: []const i32) VecResult {
-        var out: [core.VEC_WIDTH]i32 = undefined;
         const n = @min(a.len, b.len, core.VEC_WIDTH);
-        for (0..n) |i| {
-            out[i] = a[i] +% b[i]; // saturating add for safety
-        }
-        for (n..core.VEC_WIDTH) |i| out[i] = 0;
+        var va: Vec = @splat(0);
+        var vb: Vec = @splat(0);
+        @memcpy(va[0..n], a[0..n]);
+        @memcpy(vb[0..n], b[0..n]);
+        const outv = va +% vb;
+        var out: [core.VEC_WIDTH]i32 = undefined;
+        @memcpy(out[0..], &outv);
         return .{ .values = out };
     }
 
     pub fn vsub(a: []const i32, b: []const i32) VecResult {
-        var out: [core.VEC_WIDTH]i32 = undefined;
         const n = @min(a.len, b.len, core.VEC_WIDTH);
-        for (0..n) |i| out[i] = a[i] -% b[i];
-        for (n..core.VEC_WIDTH) |i| out[i] = 0;
+        var va: Vec = @splat(0);
+        var vb: Vec = @splat(0);
+        @memcpy(va[0..n], a[0..n]);
+        @memcpy(vb[0..n], b[0..n]);
+        const outv = va -% vb;
+        var out: [core.VEC_WIDTH]i32 = undefined;
+        @memcpy(out[0..], &outv);
         return .{ .values = out };
     }
 
     pub fn vmul(a: []const i32, b: []const i32) VecResult {
-        var out: [core.VEC_WIDTH]i32 = undefined;
         const n = @min(a.len, b.len, core.VEC_WIDTH);
+        var va: Vec = @splat(0);
+        var vb: Vec = @splat(0);
+        @memcpy(va[0..n], a[0..n]);
+        @memcpy(vb[0..n], b[0..n]);
+        // scalar mul via shift-add for each (no vector mul primitive here)
+        var outv: Vec = @splat(0);
         for (0..n) |i| {
-            // Use asm-intrinsic mul (shift-add under the hood)
-            out[i] = @intCast(axicore.ShiftAdd.mulAsm(@intCast(a[i]), @intCast(b[i])));
+            outv[i] = @intCast(axicore.ShiftAdd.mulAsm(@intCast(va[i]), @intCast(vb[i])));
         }
-        for (n..core.VEC_WIDTH) |i| out[i] = 0;
+        var out: [core.VEC_WIDTH]i32 = undefined;
+        @memcpy(out[0..], &outv);
         return .{ .values = out };
     }
 

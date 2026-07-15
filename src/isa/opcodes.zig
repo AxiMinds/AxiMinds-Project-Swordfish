@@ -4,7 +4,6 @@
 // AST lowering support (std.zig.Ast) for expressions -> instruction sequences
 // (plausible for LANG grammar and Book of Spells). + ASM intrinsics used in lowering.
 const std = @import("std");
-const core = @import("../core/types.zig");
 const log = std.log.scoped(.axinc_isa);
 
 // Instruction format: 32-bit

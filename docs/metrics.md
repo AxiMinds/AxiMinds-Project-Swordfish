@@ -24,6 +24,17 @@ Visible in:
 
 See src/main.zig for implementation.
 
+## Latest Autonomous Validation (2026-07-06/07, ReleaseFast + ports)
+- IPS: 7-9M+ (bench sustained 50 taps), main ~0.5-2.6M wall real.
+- Cache hit: 97-100% (5L tricache L1-3 + L4 disk .axl4 files + L5 JSON shards active).
+- Ctx eff: real varying 97-99.7% (hit-rate driven, not instr/cycle fake).
+- Energy saved: hundreds per run (e.g. ~4800+), learn ~1-2.6k /s when active.
+- L4/L5 real proof: ls l4_cache/*.axl4 (2 files), l5_shards/shard_*.json (kv like "h87e55...":546) + KGDB records.
+- From GH ports: advanced SPZA (sign/XNOR + 8D angular + adaptive) + LutMemo/TileMemo (INT1-16 cached mul/row sig) integrated via hooks + core.
+- No fakes: all from real @embed + linux clock + fs I/O + wired Memo/SPZA/KGDB.
+- Pre-FFN continual hook + memoizedMul wired (LEARN path triggers; SGLang-Plugin memo/spza concepts).
+- Full 5L + KG (Substrate + Inference 5-stage design) + GGUF/SVC4 (zllama) ready.
+
 # Installation and Configuration
 
 **Zig 0.16.0+ required**

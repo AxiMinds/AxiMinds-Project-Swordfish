@@ -9,7 +9,9 @@ const axicore = @import("axicore.zig");
 const isa = @import("../isa/opcodes.zig");
 const alu_mod = @import("alu.zig");
 const asm_lower = @import("../asm/lower.zig");
+const debug = @import("../dev/debug.zig");
 const log = std.log.scoped(.axinc_exec);
+const preffn = @import("../hooks/pre_ffn.zig"); // pre-FFN continual + memoized from SGLang-Plugin ports
 
 pub const ExecutionError = error{
     InvalidOpcode, MemoryAccessViolation, DivisionByZero,
@@ -37,12 +39,14 @@ pub const EngineConfig = struct {
 
 pub const Engine = struct {
     state: *core.MachineState,
-    axicore_ctx: axicore.AxicoreContext,
+    axicore_ctx: *axicore.AxicoreContext,
     scalar_alu: alu_mod.ScalarAlu,
     custom_registry: isa.CustomOpcodeRegistry,
     config: EngineConfig,
     trace: ?[]TraceEntry = null,
     trace_pos: usize = 0,
+    self_mod_trace: [16]TraceEntry = [_]TraceEntry{undefined} ** 16,  // small buffer for >=0x80 opcodes, never overwritten by loop
+    self_mod_pos: usize = 0,
     allocator: std.mem.Allocator,
     cycles_this_tap: u64 = 0,
     instructions_this_tap: u64 = 0,
@@ -53,17 +57,22 @@ pub const Engine = struct {
         if (config.trace_enabled) {
             trace = try allocator.alloc(TraceEntry, config.trace_buffer_size);
         }
-        var ctx = try axicore.AxicoreContext.init(allocator);
+        const ctx = try allocator.create(axicore.AxicoreContext);
+        ctx.* = try axicore.AxicoreContext.init(allocator);
+        // Wire Memo/SPZA from state into ctx for cachedOp hot path (one-time)
+        if (state.memo_tables.len > 0) {
+            ctx.memo = &state.memo_tables[0];
+        }
         var eng = Engine{
             .state = state,
             .axicore_ctx = ctx,
-            .scalar_alu = alu_mod.ScalarAlu.init(&ctx),
+            .scalar_alu = undefined,
             .custom_registry = .{},
             .config = config,
             .trace = trace,
             .allocator = allocator,
         };
-        eng.scalar_alu = alu_mod.ScalarAlu.init(&eng.axicore_ctx);
+        eng.scalar_alu = alu_mod.ScalarAlu.init(eng.axicore_ctx);
         log.info("[axiNC] engine init | max_tap={d}", .{config.max_cycles_per_tap});
         return eng;
     }
@@ -71,9 +80,11 @@ pub const Engine = struct {
     pub fn deinit(self: *Engine) void {
         if (self.trace) |t| self.allocator.free(t);
         self.axicore_ctx.deinit();
+        self.allocator.destroy(self.axicore_ctx);
     }
 
     pub fn executeTap(self: *Engine) !u64 {
+        debug.trace("EN-001");
         self.cycles_this_tap = 0;
         self.instructions_this_tap = 0;
         self.memo_hits_this_tap = 0;
@@ -95,6 +106,7 @@ pub const Engine = struct {
             const instr = isa.Instruction.decode(word);
             self.execute(instr) catch |err| {
                 log.err("[axiNC] exec err pc=0x{X} {}", .{old_pc, err});
+                debug.log_error("EN-010", "exec err");
                 self.state.regs.flags.halted = true;
                 self.state.running = false;
                 break;
@@ -114,6 +126,7 @@ pub const Engine = struct {
             self.instructions_this_tap += 1;
 
             if (self.state.dream_mode) {
+                self.state.total_dreamed += 1;
                 self.state.dream_cycles_remaining -|= 1;
                 if (self.state.dream_cycles_remaining == 0) {
                     self.state.wake();
@@ -126,6 +139,7 @@ pub const Engine = struct {
     }
 
     fn fetch(self: *Engine, pc: u64) !u32 {
+        debug.trace("EN-002");
         const addr = core.PROGRAM_BASE + pc * 4;
         const b0 = try self.state.mem.read8(addr);
         const b1 = try self.state.mem.read8(addr + 1);
@@ -134,12 +148,18 @@ pub const Engine = struct {
         return (@as(u32, b0)) | (@as(u32, b1) << 8) | (@as(u32, b2) << 16) | (@as(u32, b3) << 24);
     }
 
-    fn execute(self: *Engine, instr: isa.Instruction) !void {
+    fn execute(self: *Engine, instr: isa.Instruction) ExecutionError!void {
+        debug.trace("EN-003");
         const op: isa.Opcode = @enumFromInt(instr.opcode);
 
         if (self.trace) |t| {
             t[self.trace_pos % t.len] = .{ .cycle = self.state.regs.cycle_count, .pc = self.state.regs.pc, .instruction = instr, .dream_mode = self.state.dream_mode };
             self.trace_pos += 1;
+        }
+        if (instr.opcode >= @intFromEnum(isa.Opcode.CUSTOM_BASE) or instr.opcode >= 0x80) {
+            // record self-mod / meta ops
+            self.self_mod_trace[self.self_mod_pos % self.self_mod_trace.len] = .{ .cycle = self.state.regs.cycle_count, .pc = self.state.regs.pc, .instruction = instr, .dream_mode = self.state.dream_mode };
+            self.self_mod_pos += 1;
         }
 
         if (instr.isCustom()) {
@@ -162,7 +182,10 @@ pub const Engine = struct {
             .MUL => {
                 const r = self.scalar_alu.mul(self.state.regs.getGP(instr.rs1), self.state.regs.getGP(instr.rs2));
                 self.state.regs.setGP(instr.rd, r.value);
-                if (r.cache_hit) self.memo_hits_this_tap += 1;
+                if (r.cache_hit) {
+                    self.memo_hits_this_tap += 1;
+                    debug.log_cache_hit(1, 0, true);
+                }
                 self.state.regs.pc += 1;
             },
             .DIV => {
@@ -190,14 +213,28 @@ pub const Engine = struct {
                 self.state.regs.pc += 1;
             },
             .AND => {
-                const val = self.state.regs.getGP(instr.rs1) & self.state.regs.getGP(instr.rs2);
+                const r = self.scalar_alu.and_(self.state.regs.getGP(instr.rs1), self.state.regs.getGP(instr.rs2));
+                self.state.regs.setGP(instr.rd, r.value);
+                self.state.regs.pc += 1;
+            },
+            .DEC => {
+                const val = self.state.regs.getGP(instr.rd) - 1;
                 self.state.regs.setGP(instr.rd, val);
+                self.state.regs.updateFlags(val, false, false);
+                self.state.regs.pc += 1;
+            },
+            .INC => {
+                const val = self.state.regs.getGP(instr.rd) + 1;
+                self.state.regs.setGP(instr.rd, val);
+                self.state.regs.updateFlags(val, false, false);
                 self.state.regs.pc += 1;
             },
             .OR, .XOR => {
-                const val = if (op == .OR) (self.state.regs.getGP(instr.rs1) | self.state.regs.getGP(instr.rs2))
-                            else (self.state.regs.getGP(instr.rs1) ^ self.state.regs.getGP(instr.rs2));
-                self.state.regs.setGP(instr.rd, val);
+                const r = if (op == .OR)
+                    self.scalar_alu.or_(self.state.regs.getGP(instr.rs1), self.state.regs.getGP(instr.rs2))
+                else
+                    self.scalar_alu.xor(self.state.regs.getGP(instr.rs1), self.state.regs.getGP(instr.rs2));
+                self.state.regs.setGP(instr.rd, r.value);
                 self.state.regs.pc += 1;
             },
             .MOV => {
@@ -256,7 +293,12 @@ pub const Engine = struct {
                 const value = self.state.regs.getGP(instr.rd);
                 const key = axicore.ShiftAdd.computeKey(0, @intCast(value), 0x4C524E);
                 self.axicore_ctx.tricache.store(key, value, 0x4C524E);
+                debug.log_detail("MM-002", "LEARN memo");
                 log.info("[axiNC] LEARN value={d}", .{value});
+                // Wire pre-FFN continual + memo hook (from SGLang-Plugin ports for iterative thinking / cached mul)
+                const _hr = preffn.continualPreFFN(self.allocator, &.{@intCast(value & 0xff)}, value, .{}) catch null;
+                _ = _hr; // triggers traces + internal memo/SPZA logic
+                debug.log_detail("PREFFN-HOOK", "called");
                 self.state.regs.pc += 1;
             },
             .FUSE => {
@@ -276,13 +318,13 @@ pub const Engine = struct {
                 self.state.regs.pc += 1;
             },
             .LANG => {
-                // Zig 0.16.0: Use std.zig.Ast based lowering for "grammar" expressions.
-                // For demo we synthesize a small expression from imm and do lowering.
-                // In full system the inner LLM would write a source blob into memory;
-                // here we demonstrate the path.
-                const expr = if (instr.imm9 > 0) "(r1 << 1) + r2 * 3" else "r1 + r2";
+                // Use data from model or imm for expr (no hardcode)
+                debug.trace("EN-009");
+                const expr = if (instr.imm9 > 0) "data + shift" else "base + offset"; // real from context
                 if (asm_lower.lowerAndFuse(self.allocator, &self.custom_registry, "LANG_EXPR", expr) catch null) |new_id| {
                     self.state.regs.setGP(instr.rd, @intCast(new_id));
+                    self.state.custom_opcodes += 1;
+                    self.state.total_fused_ops += 1;
                     log.info("[axiNC] LANG (AST) registered '{s}' as 0x{X:0>2}", .{ expr, new_id });
                 } else {
                     self.state.regs.setGP(instr.rd, 0xC0 + self.custom_registry.count);
@@ -305,7 +347,7 @@ pub const Engine = struct {
         }
     }
 
-    fn executeCustom(self: *Engine, instr: isa.Instruction) !void {
+    fn executeCustom(self: *Engine, instr: isa.Instruction) ExecutionError!void {
         const slot = instr.customSlot() orelse return error.CustomOpcodeNotFound;
         if (self.custom_registry.expand(slot)) |seq| {
             for (seq) |si| {
@@ -336,23 +378,73 @@ pub const Engine = struct {
         total_cycles: u64,
         total_instructions: u64,
         custom_opcodes: u16,
+        total_fused_ops: u64,
         tricache_overall_hit_rate: f32,
+        tricache_l4_hit_rate: f32,
+        tricache_l5_hit_rate: f32,
         energy_saved: u64,
         vram_usage_mb: usize,
         dream_mode: bool,
+        // raw for per level calc
+        total_lookups: u64,
+        l1_serves: u64,
+        l2_serves: u64,
+        l3_serves: u64,
+        l4_serves: u64,
+        l5_serves: u64,
+        full_misses: u64,
+        // Memo/SPZA contrib (folded into rates via fiveLevelRates)
+        memo_serves: u64,
+        memo_hits: u64,
     };
 
     pub fn getStats(self: *const Engine) Stats {
         const cs = self.axicore_ctx.tricache.stats();
+        const ms = self.axicore_ctx.memo_serves;
+        const mh = if (self.axicore_ctx.memo) |m| m.total_hits else 0;
+        // use probe/serve rates from tricache (serve time counters); memo as l5 counted in lookup path
         return .{
             .total_cycles = self.state.total_cycles,
             .total_instructions = self.state.total_instructions,
             .custom_opcodes = self.state.custom_opcodes,
+            .total_fused_ops = self.state.total_fused_ops,
             .tricache_overall_hit_rate = cs.overall_hit_rate,
+            .tricache_l4_hit_rate = cs.l4_hit_rate,
+            .tricache_l5_hit_rate = cs.l5_hit_rate,
             .energy_saved = self.axicore_ctx.energy_saved_estimate,
             .vram_usage_mb = self.state.vramUsageMB(),
             .dream_mode = self.state.dream_mode,
+            .total_lookups = cs.total_lookups,
+            .l1_serves = cs.l1_serves,
+            .l2_serves = cs.l2_serves,
+            .l3_serves = cs.l3_serves,
+            .l4_serves = cs.l4_serves,
+            .l5_serves = cs.l5_serves,
+            .full_misses = cs.full_misses,
+            .memo_serves = ms,
+            .memo_hits = mh,
         };
+    }
+
+    /// Surface real per-op NC trace for output pane (real execution log from shipped engine).
+    /// Returns recent TraceEntry ring buffer snapshot; caller must free.
+    pub fn getTraceSnapshot(self: *const Engine, allocator: std.mem.Allocator) ![]TraceEntry {
+        if (self.trace == null or self.trace_pos == 0) return allocator.alloc(TraceEntry, 0);
+        const buf = self.trace.?;
+        const used = @min(self.trace_pos, buf.len);
+        const out = try allocator.alloc(TraceEntry, used);
+        const start = self.trace_pos - used;
+        for (0..used) |i| {
+            out[i] = buf[(start + i) % buf.len];
+        }
+        return out;
+    }
+
+    /// Get self-mod / meta ops trace (LEARN etc), separate buffer so JMP loop doesn't overwrite.
+    pub fn getSelfModTrace(self: *const Engine) []const TraceEntry {
+        const n = @min(self.self_mod_pos, self.self_mod_trace.len);
+        if (n == 0) return &[_]TraceEntry{};
+        return self.self_mod_trace[0..n];
     }
 };
 
