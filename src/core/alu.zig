@@ -56,6 +56,8 @@ pub const ScalarAlu = struct {
             spza.dims[2] = @bitCast(@as(i64, @intCast(tag)));
             if (m.lookup(&spza)) |v| {
                 self.ctx.memo_serves += 1;
+                // count memo hit toward l5 rate (per gaps)
+                self.ctx.tricache.l5_serves += 1;
                 const e = axicore.MEP.energyCost(.cached);
                 self.energy_saved += e;
                 self.ctx.energy_saved_estimate += e;

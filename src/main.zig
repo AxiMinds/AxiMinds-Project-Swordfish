@@ -180,8 +180,8 @@ pub fn main() !void {
         });
 
         const learn_rate = if (elapsed_s > 0) @as(f64, @floatFromInt(stats.custom_opcodes)) / elapsed_s else 0;
-        // rates now from engine.getStats which uses extended tricacheHitRates with Memo/SPZA folded into per-level
-        // (no duplicate local calc, one metrics fn)
+        // rates now from engine.getStats which uses tricache.stats() (memo folded via l5_serves bump in cachedOp)
+        // (one metrics fn)
         std.debug.print("  AI REAL: learn_rate={d:.2}/s fused={d} vram_mb={d} ctx_eff={d:.1}% (l4={d:.1}% l5={d:.1}%)\n", .{
             learn_rate,
             stats.total_fused_ops,
