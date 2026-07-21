@@ -14,7 +14,15 @@ const assembler = @import("asm/assembler.zig");
 const debug = @import("dev/debug.zig");
 const agent_loop = @import("agent/loop.zig");
 const ollama = @import("bridge/ollama_client.zig");
+// Pull bridge C-ABI tests into the consolidated test suite
+const bridge_lib = @import("bridge_lib.zig");
+const models = @import("models/host.zig");
 const log = std.log.scoped(.axinc_main);
+// Ensure agent tests are always linked (avoid DCE of test decls)
+comptime {
+    _ = agent_loop.extractAxiAsm;
+    _ = models.ModelHost;
+}
 
 /// Zig 0.16 main signature: first parameter is `std.process.Init` (gpa + io + args).
 pub fn main(init: std.process.Init) !void {
@@ -26,10 +34,11 @@ pub fn main(init: std.process.Init) !void {
     _ = args.next(); // argv0
 
     var mode_agent = false;
-    var model: []const u8 = "qwen3.5:0.8b";
-    var endpoint: []const u8 = "http://127.0.0.1:11434";
+    var model: []const u8 = "qwen3.5:0.8B";
+    var endpoint: []const u8 = "http://127.0.0.1:11534";
     var ticks: u32 = 8;
     var goal: ?[]const u8 = null;
+    var mock_llm = false;
 
     while (args.next()) |a| {
         if (std.mem.eql(u8, a, "agent") or std.mem.eql(u8, a, "--agent")) {
@@ -43,15 +52,19 @@ pub fn main(init: std.process.Init) !void {
             ticks = std.fmt.parseInt(u32, t, 10) catch 8;
         } else if (std.mem.eql(u8, a, "--goal")) {
             goal = args.next();
+        } else if (std.mem.eql(u8, a, "--mock")) {
+            mock_llm = true;
+            mode_agent = true;
         } else if (std.mem.eql(u8, a, "--help") or std.mem.eql(u8, a, "-h")) {
             std.debug.print(
                 \\axinc — AxiMinds Neural Computer
                 \\  (default)          cache + metrics demo
                 \\  agent              Ollama/Qwen continuous NC loop
-                \\    --model NAME     default qwen3.5:0.8b
-                \\    --endpoint URL   default http://127.0.0.1:11434
+                \\    --model NAME     default qwen3.5:0.8B
+                \\    --endpoint URL   default http://127.0.0.1:11534
                 \\    --ticks N        default 8
                 \\    --goal "text"    standing instructions override
+                \\    --mock           offline agent path (no Ollama required)
                 \\
             , .{});
             return;
@@ -62,6 +75,7 @@ pub fn main(init: std.process.Init) !void {
         var cfg = agent_loop.AgentConfig{
             .ollama = ollama.Config{ .endpoint = endpoint, .model = model },
             .max_ticks = ticks,
+            .mock_llm = mock_llm,
         };
         if (goal) |g| cfg.standing_goal = g;
         try agent_loop.runLoop(allocator, io, cfg);
@@ -203,13 +217,30 @@ pub fn main(init: std.process.Init) !void {
     std.debug.print("Demo complete with REAL metrics from real file + real SPZA/Memo. See README/docs.\n", .{});
 }
 
+test "bridge C ABI available" {
+    // Ensure bridge_lib is linked into the test binary and exports resolve.
+    _ = bridge_lib.axinc_init;
+    _ = bridge_lib.axinc_ffn_tap;
+    _ = bridge_lib.axinc_get_stats_json;
+    _ = bridge_lib.axinc_load_axiasm;
+    _ = bridge_lib.axinc_model_register;
+}
+
 test "5L via cachedOp" {
     const allocator = std.testing.allocator;
     var state = try core.MachineState.init(allocator);
     defer state.deinit(allocator);
-    // isolate this test: use unique dirs (low-level like axicore) + clear pre-pop model memo + unlink our keys' .axl4 + clear ram maps so our keys miss first even on re-run of test binary (real first-miss for rate calc)
+    // Isolate pure dirs: wipe residual L4 files AND L5 shards so L5 disk hits
+    // cannot skip L4 (prior storeDeep polluted shards across runs).
     _ = std.os.linux.mkdir("l4_5l_pure".ptr, 0o755);
     _ = std.os.linux.mkdir("l5_5l_pure".ptr, 0o755);
+    // best-effort wipe shards and axl4 for isolation
+    var shard_i: u32 = 0;
+    while (shard_i < 16) : (shard_i += 1) {
+        var sp: [64]u8 = undefined;
+        const sn = std.fmt.bufPrintZ(&sp, "l5_5l_pure/shard_{d}.json", .{shard_i}) catch continue;
+        _ = std.os.linux.unlink(sn.ptr);
+    }
     if (state.memo_tables.len > 0) {
         for (state.memo_tables[0].entries) |*e| e.valid = false;
     }
@@ -217,7 +248,6 @@ test "5L via cachedOp" {
     defer eng.deinit();
     eng.axicore_ctx.tricache.l4_dir = "l4_5l_pure";
     eng.axicore_ctx.tricache.l5_dir = "l5_5l_pure";
-    // force first miss for our exact keys (unlink any prior .axl4 from previous execution in same or prior bin run)
     const key_mul = axicore.ShiftAdd.computeKey(42, 7, 0x4D554C);
     const key_add = axicore.ShiftAdd.computeKey(294, 7, 0x4144);
     var buf1: [64]u8 = undefined;
@@ -229,11 +259,10 @@ test "5L via cachedOp" {
     eng.axicore_ctx.tricache.l4_ram.clearRetainingCapacity();
     eng.axicore_ctx.tricache.l5_only_keys.clearRetainingCapacity();
     eng.axicore_ctx.tricache.promote_hits_to_l3 = false;
-    // mixed volume, first-miss+repeat on L4 (mul) and L5-only (add via storeL5Only path) to exercise probe skip and rates
-    // first calls: miss (no pre-store), cachedOp will storeDeep / storeL5Only inside
-    _ = eng.scalar_alu.add(294, 7); // L5 first to mark l5_only early, avoid initial l4 probe pollution on l5
+    // First: L5-only ADD (marks l5_only), then MUL miss→storeDeep (L4+L5)
+    _ = eng.scalar_alu.add(294, 7);
     _ = eng.scalar_alu.mul(42, 7);
-    // heavy L4 repeats + some L5 to exercise mixed + l5_only skip; high volume (1000 L4) for legitimate high folded rate on getStats path even under suite
+    // Heavy L4 repeats on mul + L5-only repeats on add
     for (0..1000) |_| {
         _ = eng.scalar_alu.mul(42, 7);
     }
@@ -241,8 +270,7 @@ test "5L via cachedOp" {
         _ = eng.scalar_alu.add(294, 7);
     }
     const gs = eng.getStats();
-    std.debug.print("5L TEST RAW (mixed first-miss+repeat l5_only): l4_hit={d:.2} l5_hit={d:.2} l4s={d} l5s={d}\n", .{gs.tricache_l4_hit_rate, gs.tricache_l5_hit_rate, gs.l4_serves, gs.l5_serves});
-    // real >=95% per-level on shipped path with volume + probe isolation
+    std.debug.print("5L TEST RAW (mixed first-miss+repeat l5_only): l4_hit={d:.2} l5_hit={d:.2} l4s={d} l5s={d}\n", .{ gs.tricache_l4_hit_rate, gs.tricache_l5_hit_rate, gs.l4_serves, gs.l5_serves });
     try std.testing.expect(gs.tricache_l4_hit_rate >= 0.95);
     try std.testing.expect(gs.tricache_l5_hit_rate >= 0.95);
 }

@@ -9,8 +9,9 @@
 const std = @import("std");
 
 pub const Config = struct {
-    endpoint: []const u8 = "http://127.0.0.1:11434",
-    model: []const u8 = "qwen3.5:0.8b",
+    /// Host default: Docker Ollama on 11534 (see AxiMinds-Inference manage.sh). Override with --endpoint.
+    endpoint: []const u8 = "http://127.0.0.1:11534",
+    model: []const u8 = "qwen3.5:0.8B",
 };
 
 pub const Result = struct {
@@ -49,18 +50,19 @@ pub fn chat(
     var url_buf: [512]u8 = undefined;
     const url = try std.fmt.bufPrint(&url_buf, "{s}/api/chat", .{config.endpoint});
 
+    // Note: avoid curl -f so we can surface HTTP error bodies; long max-time for cold model load.
     const run = std.process.run(allocator, io, .{
         .argv = &.{
-            "curl", "-sf",
+            "curl", "-sS",
             "--connect-timeout", "10",
-            "--max-time", "300",
+            "--max-time", "600",
             "-X", "POST",
             url,
             "-H", "Content-Type: application/json",
             "-d", body.items,
         },
         .stdout_limit = .limited(8 * 1024 * 1024),
-        .stderr_limit = .limited(64 * 1024),
+        .stderr_limit = .limited(256 * 1024),
     }) catch |err| {
         return Result{
             .text = try std.fmt.allocPrint(allocator, "Ollama process error: {}", .{err}),
@@ -75,9 +77,11 @@ pub fn chat(
         else => false,
     };
     if (!ok_http) {
+        const detail = if (run.stdout.len > 0) run.stdout else run.stderr;
+        const msg = try std.fmt.allocPrint(allocator, "Ollama HTTP failed (endpoint={s} model={s} term={any}): {s}", .{ config.endpoint, config.model, run.term, detail });
         allocator.free(run.stdout);
         return Result{
-            .text = try std.fmt.allocPrint(allocator, "Ollama HTTP failed (is ollama serve running at {s}? model={s})", .{ config.endpoint, config.model }),
+            .text = msg,
             .model_used = config.model,
             .ok = false,
         };
@@ -164,7 +168,7 @@ pub fn isReachable(allocator: std.mem.Allocator, io: std.Io, config: Config) boo
     var url_buf: [512]u8 = undefined;
     const url = std.fmt.bufPrint(&url_buf, "{s}/api/tags", .{config.endpoint}) catch return false;
     const run = std.process.run(allocator, io, .{
-        .argv = &.{ "curl", "-sf", "--connect-timeout", "2", "--max-time", "5", url },
+        .argv = &.{ "curl", "-sS", "--connect-timeout", "2", "--max-time", "5", url },
         .stdout_limit = .limited(256 * 1024),
         .stderr_limit = .limited(4096),
     }) catch return false;

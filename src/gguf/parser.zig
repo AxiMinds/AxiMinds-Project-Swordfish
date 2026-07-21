@@ -556,9 +556,9 @@ pub fn extractModelConfig(gguf: *const GGUFFile) !ModelConfig {
     const ff = @as(u32, @intCast(gguf.getMetadataInt(prefix ++ ".feed_forward_length") orelse 11008));
     const heads = @as(u32, @intCast(gguf.getMetadataInt(prefix ++ ".attention.head_count") orelse 32));
     const heads_kv = @as(u32, @intCast(gguf.getMetadataInt(prefix ++ ".attention.head_count_kv") orelse 8));
-    const rope_base = @floatCast(gguf.getMetadataFloat(prefix ++ ".rope.freq_base") orelse 10000.0);
+    const rope_base: f32 = @floatCast(gguf.getMetadataFloat(prefix ++ ".rope.freq_base") orelse 10000.0);
     const rope_dim = @as(u32, @intCast(gguf.getMetadataInt(prefix ++ ".rope.dimension_count") orelse 128));
-    const eps = @floatCast(gguf.getMetadataFloat(prefix ++ ".attention.layer_norm_rms_epsilon") orelse 1e-5);
+    const eps: f32 = @floatCast(gguf.getMetadataFloat(prefix ++ ".attention.layer_norm_rms_epsilon") orelse 1e-5);
     const vocab = @as(u32, @intCast(gguf.getMetadataInt("tokenizer.ggml.tokens") orelse 32000)); // approx
     const bos = @as(u32, @intCast(gguf.getMetadataInt("tokenizer.ggml.bos_token_id") orelse 1));
     const eos = @as(u32, @intCast(gguf.getMetadataInt("tokenizer.ggml.eos_token_id") orelse 2));

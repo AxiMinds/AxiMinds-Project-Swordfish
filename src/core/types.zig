@@ -100,7 +100,8 @@ pub const RegisterFile = struct {
 // ─────────────────────────────────────────────────────────────────────
 // axiNC Main Memory
 // ─────────────────────────────────────────────────────────────────────
-pub const DEFAULT_MEM_SIZE: usize = 256 * 1024 * 1024;
+// MVP default: 16MB (was 256MB). Sufficient for programs + stack; expandable later.
+pub const DEFAULT_MEM_SIZE: usize = 16 * 1024 * 1024;
 pub const STACK_BASE: u64 = 0x0FFF_0000;
 pub const PROGRAM_BASE: u64 = 0x0000_1000;
 pub const HOOK_BUFFER_BASE: u64 = 0x0E00_0000;
@@ -330,7 +331,9 @@ pub const MachineState = struct {
                 memo_tables[0].store(&spza, @intCast(line.len));
             }
         }
-        const canvas = try DreamCanvas.init(allocator, 4096, 4096);
+        // MVP default canvas: 256×256 (~256KB). Expand at runtime via DRESIZE when needed.
+        // (4096×4096 was ~64MB and stressed test runners / dual-init bridge tests.)
+        const canvas = try DreamCanvas.init(allocator, 256, 256);
         log.info("[axiNC] machine state initialized | mem={d}MB canvas={d}MB", .{
             DEFAULT_MEM_SIZE / (1024 * 1024),
             canvas.vramBytes() / (1024 * 1024),
