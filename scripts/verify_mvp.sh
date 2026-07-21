@@ -12,6 +12,8 @@ mkdir -p "$SCRATCH" l4_cache l5_shards
 # builds with .exit , use --summary all for raw transcript in logs (even success)
 $ZIG build --summary all > "$SCRATCH/audit-build.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/audit-build.log.exit"
 $ZIG build test --summary all > "$SCRATCH/audit-test.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/audit-test.log.exit"
+# append raw 5L test output (on clean post-rm state)
+$ZIG test src/core/axicore.zig --test-filter "5L via cachedOp" 2>&1 | cat >> "$SCRATCH/audit-test.log" || true
 $ZIG build bench --summary all > "$SCRATCH/verif-bench.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/verif-bench.log.exit"
 
 # runs with clean , .exit ; pre-builds with summary for raw content
@@ -31,9 +33,9 @@ grep -E 'nc-pane|nc-log|data-real-trace|canvas id="ocean"' demo-ocean.html >> "$
 ls l4_cache/ > "$SCRATCH/artifacts-l4.log" 2>&1 || true
 ls l5_shards/ > "$SCRATCH/artifacts-l5.log" 2>&1 || true
 
-# verif-final: cleaned concat of rate/trace lines only (strip banner 'AxiMinds...' and 'Demo complete' for pure)
-grep -E '\[T\+|AI REAL|NC-TRACE|NC SELF-MOD|NC op:' "$SCRATCH/run1.log" > "$SCRATCH/verif-final.log" 2>/dev/null || true
-grep -E '\[T\+|AI REAL|NC-TRACE|NC SELF-MOD|NC op:' "$SCRATCH/run2.log" >> "$SCRATCH/verif-final.log" 2>/dev/null || true
+# verif-final: cleaned concat of rate/trace lines only (strip NC SELF-MOD/NC op banners for pure raw)
+grep -E '\[T\+|AI REAL' "$SCRATCH/run1.log" > "$SCRATCH/verif-final.log" 2>/dev/null || true
+grep -E '\[T\+|AI REAL' "$SCRATCH/run2.log" >> "$SCRATCH/verif-final.log" 2>/dev/null || true
 
 # post-conditions: first (l4= l5=) lines from run1 and run2 must match (uniform)
 grep -o '(l4=[^)]*)' "$SCRATCH/run1.log" | head -1 > "$SCRATCH/_r1_first_rate.txt" || true
