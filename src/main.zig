@@ -83,7 +83,7 @@ pub fn main() !void {
         \\MUL R4, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-loop:
+        \\loop:
         \\DEC R10
         \\JNZ loop
         \\MOVI R3, 294

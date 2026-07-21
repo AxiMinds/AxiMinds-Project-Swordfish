@@ -403,7 +403,7 @@ pub const Engine = struct {
         const ms = self.axicore_ctx.memo_serves;
         const mh = if (self.axicore_ctx.memo) |m| m.total_hits else 0;
         // wire tricacheHitRates (was defined but unused) and fold memo into l4/l5 rates per gaps
-        const folded = @import("axicore.zig").tricacheHitRates(.{
+        const folded = axicore.tricacheHitRates(.{
             .l1_serves = cs.l1_serves,
             .l2_serves = cs.l2_serves,
             .l3_serves = cs.l3_serves,
