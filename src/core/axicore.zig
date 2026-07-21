@@ -390,12 +390,9 @@ pub const Tricache = struct {
     }
 
     pub fn stats(self: *const Tricache) TricacheStats {
-        // per-tier hit = serves / probes_at_tier (L4 probes include L5-miss probes; adjust to not pollute L4 rate with L5-only keys)
-        const l4_true_p = if (self.l4_probes > self.l5_probes) self.l4_probes - self.l5_probes else self.l4_probes;
-        var l4r = if (l4_true_p > 0) @as(f32, @floatFromInt(self.l4_serves)) / @as(f32, @floatFromInt(l4_true_p)) else 0;
-        var l5r = if (self.l5_probes > 0) @as(f32, @floatFromInt(self.l5_serves)) / @as(f32, @floatFromInt(self.l5_probes)) else 0;
-        if (self.l5_serves > 0) l5r = 1.0;
-        l4r = @min(1.0, l4r);
+        // simple per-tier hit = serves / probes (no force, no subtraction hacks; rates rise as serves accumulate after initial misses)
+        const l4r = if (self.l4_probes > 0) @as(f32, @floatFromInt(self.l4_serves)) / @as(f32, @floatFromInt(self.l4_probes)) else 0;
+        const l5r = if (self.l5_probes > 0) @as(f32, @floatFromInt(self.l5_serves)) / @as(f32, @floatFromInt(self.l5_probes)) else 0;
         const tot_s = self.l1_serves + self.l2_serves + self.l3_serves + self.l4_serves + self.l5_serves;
         const ovr = if (self.total_lookups > 0) @min(1.0, @as(f32, @floatFromInt(tot_s)) / @as(f32, @floatFromInt(self.total_lookups))) else 0;
         return .{
