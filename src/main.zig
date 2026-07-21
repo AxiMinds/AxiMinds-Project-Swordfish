@@ -38,64 +38,31 @@ pub fn main() !void {
         \\MOVI R17, 14
         \\MOVI R18, 2
         \\MUL R6, R17, R18
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MOVI R19, 21
-        \\MOVI R20, 3
-        \\MUL R11, R19, R20   ; unique early for L4 miss probes to start low
-        \\MOVI R21, 22
-        \\MOVI R22, 3
-        \\MUL R12, R21, R22
-        \\MOVI R23, 23
-        \\MOVI R24, 3
-        \\MUL R13, R23, R24
-        \\MOVI R25, 24
-        \\MOVI R26, 3
-        \\MUL R14, R25, R26   ; more unique to dominate early probes with misses
-        \\loop:
+        \MOVI R19, 21
+        \MOVI R20, 3
+        \MUL R7, R19, R20
+        \MOVI R21, 22
+        \MOVI R22, 3
+        \MUL R8, R21, R22
+        \MOVI R23, 23
+        \MOVI R24, 3
+        \MUL R9, R23, R24
+        \MOVI R25, 24
+        \MOVI R26, 3
+        \MUL R11, R25, R26
+        \MOVI R27, 25
+        \MOVI R28, 3
+        \MUL R12, R27, R28
+        \MOVI R29, 26
+        \MOVI R30, 3
+        \MUL R13, R29, R30
+        \MOVI R19, 27
+        \MOVI R20, 3
+        \MUL R14, R19, R20
+        \MOVI R21, 28
+        \MOVI R22, 3
+        \MUL R15, R21, R22
+        \MUL R3, R1, R2   ; the main key (will hit in later taps)
         \\DEC R10
         \\JNZ loop
         \\MOVI R3, 294
