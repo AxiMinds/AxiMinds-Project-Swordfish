@@ -53,7 +53,9 @@ pub fn main() !void {
         \\ADD R6, R3, R2
         \\ADD R6, R3, R2
         \\ADD R6, R3, R2
-        \\ADD R6, R3, R2   ; L5 in post (executed per tap after small R10; contributes to gradual l5 rise across taps)
+        \\ADD R6, R3, R2
+        \\ADD R6, R3, R2
+        \\ADD R6, R3, R2   ; more L5 post per tap (boost serves while small R10 keeps first low + rise across taps)
         \\LANG R8, 1
         \\DREAM 5
         \\LEARN R9
