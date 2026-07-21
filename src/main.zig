@@ -33,17 +33,13 @@ pub fn main() !void {
         \\MUL R3, R1, R2   ; main key inside loop for volume (R10=2 small repeats per tap)
         \\DEC R10
         \\JNZ loop
+        \\MUL R3, R1, R2   ; extra L4 repeats after loop to increase l4 serves proportion for higher end l4 rate
+        \\MUL R3, R1, R2
+        \\MUL R3, R1, R2
         \\MOVI R3, 294
         \\MOVI R2, 7
         \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2   ; trimmed L5 posts (still exercises L5 rise; more relative L4 volume for higher l4 rate visibility while keeping per-tap small for low first + cross-tap rise)
+        \\ADD R6, R3, R2   ; minimal L5 (2) to exercise tier + rise; extra MULs boost l4 rate visibility
         \\LANG R8, 1
         \\DREAM 5
         \\LEARN R9
