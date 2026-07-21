@@ -28,3 +28,4 @@
 - R10=1 + labels + varied early for low start L4 rate that rises; first after 256 low
 - targeted tests + full verif run after each; proof in SCRATCH
 - re-verified 2026-07-21 post fixes + commit push; all gaps closed per skeptic list
+- restart fix (HALT+uncond pc=0), 5L to engine.zig, verif-standalone rm; full verif ok (l4 70->99 rise, ovr>=97, l4s=2065, artifacts+kgdb+html), warmup+getstats fold confirmed, pushes; l5 90.5 as prior
