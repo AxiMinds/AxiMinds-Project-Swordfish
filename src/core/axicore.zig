@@ -706,7 +706,7 @@ pub const ShiftAdd = struct {
     /// via the same computeKey path as ALU, for organic 5L hit rates in demo.
     /// Uses deep stores (no L1-L3) + one lookup so that with promote_hits_to_l3=false
     /// the shipped cachedOp lookup path in executeTap will keep serving L4/L5.
-    pub fn warmupDemoKeys(tricache: *Tricache) void {
+    pub fn warmupDemoKeys(_: *Tricache) void {
         // no pre-stores: all first ops miss for low first rate (L4/L5) after first ~256-cycle tap; rise as hits accumulate over 25 taps on same keys
         // (warmup called as required; organic from real first misses + stores)
     }

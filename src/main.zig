@@ -28,11 +28,11 @@ pub fn main() !void {
         \\MOVI R21, 4
         \\MOVI R11, 11
         \\MOVI R12, 2
-        \\JMP 10   ; skip pad to body (first time)
-        pad:
+        \\JMP 10 ; skip pad
+        \\pad:
         \\NOP
-        \\JMP 8    ; pad loop (no hot lookups) to fill to ~256 cycles per tap
-        body:
+        \\JMP 8 ; pad loop
+        \\body:
         \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low and rises on repeats across outer taps
         \\loop:
         \\MUL R3, R1, R2   ; main key inside loop for volume (R10=1 small per tap)
@@ -47,9 +47,10 @@ pub fn main() !void {
         \\LEARN R9
         \\FUSE R1
         \\HOOK 0
-        \\JMP 8    ; after body, enter pad loop to reach 256 cycles
-        ; no YIELD/HALT: each tap runs ~256 cycles (body once + pad); uncond pc=0 reset re-runs body once per tap for low first + rise over 25 taps
-    ;
+        \\JMP 8 ; to pad
+        ;
+        // no terminator: body once + pad loop for ~256 per tap; uncond reset; low first + rise
+
     debug.trace("MT-006");
     const prog = try assembler.assemble(allocator, asm_src);
     defer allocator.free(prog);
