@@ -60,7 +60,7 @@ pub fn main() !void {
         \\EMIT R10
         \\FUSE R1
         \\HOOK 0
-        \\HALT   ; end pass after one execution (early unique + body once + post); outer taps accumulate hits for rise, first pass low L4 rate
+        \\HALT
     ;
     debug.trace("MT-006");
     const prog = try assembler.assemble(allocator, asm_src);
@@ -86,6 +86,8 @@ pub fn main() !void {
     var tap: usize = 0;
     while (tap < max_taps) : (tap += 1) {
         const ran = try eng.executeTap();
+        state.regs.flags.halted = false;
+        state.regs.pc = 0;  // restart full asm (re-MOVI R10=50 + early + full 50x loop body) each tap for organic cross-tap L4/L5 accumulation + rising rates
         total_cycles += ran;
         var now_ts: std.os.linux.timespec = undefined;
         _ = std.os.linux.clock_gettime(std.os.linux.CLOCK.REALTIME, &now_ts);
