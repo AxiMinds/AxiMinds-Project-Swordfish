@@ -21,7 +21,7 @@ pub fn main() !void {
 
     // Demo: first executeTap populates via cachedOp miss+storeDeep (see alu); no pre-tap mutation
     const asm_src = 
-        \\MOVI R10, 1   ; 1 iter per tap so first 256 cycles has minimal repeats of key -> L4 rate starts low (misses), rises over taps as serves accumulate on repeats + L5 post
+        \\MOVI R10, 5   ; small repeats per pass for first rate low (many unique misses + few main hits), rises over taps
         \\MOVI R1, 42
         \\MOVI R2, 7
         \\MOVI R20, 100
@@ -62,11 +62,8 @@ pub fn main() !void {
         \\MOVI R21, 28
         \\MOVI R22, 3
         \\MUL R15, R21, R22
-        \\MUL R3, R1, R2   ; the main key (will hit in later taps)
-        \\MOVI R19, 21
-        \\MOVI R20, 3
-        \\MUL R7, R19, R20   ; repeat one early key so first pass gets L4 serve >0 (miss then hit)
         \\loop:
+        \\MUL R3, R1, R2   ; main key inside loop for volume
         \\DEC R10
         \\JNZ loop
         \\MOVI R3, 294
