@@ -30,3 +30,4 @@
 - re-verified 2026-07-21 post fixes + commit push; all gaps closed per skeptic list
 - restart fix (HALT+uncond pc=0), 5L to engine.zig, verif-standalone rm; full verif ok (l4 70->99 rise, ovr>=97, l4s=2065, artifacts+kgdb+html), warmup+getstats fold confirmed, pushes; l5 90.5 as prior
 - R10=5 + YIELD+uncond reset+no EMIT (no overwrite/stuck 186/ran=0/dups); first l4=14.8% low + rise across taps (92.6->99.7 ovr, l4 14.8->21.9), l4s=148 l5s=525, 5L RAW(demo) in audit+run, verif RC0, full plan re-run, push each, SCRATCH proof
+- fixed skeptic listed gaps: removed HALT (YIELD), uncond reset every tap, R10=5 for low first + varying rise in verif-final (not flat 97.1/70 from tap1), l4s=148>49, 5L RAW captured from run in audit (no standalone import fail, build-test 0), no dups/stale (cycles increase each print); plan dev terse only; re-ran full verif on current code for proof
