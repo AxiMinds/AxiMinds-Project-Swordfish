@@ -35,12 +35,17 @@ zig build run -- agent --model qwen3.5:0.8b --ticks 8
 
 Loop: **Ollama(Qwen) → parse ```axiasm → assemble → NC execute → stats feedback → next tick**.
 
-## Still not complete (need more ports)
+## MVP secondary-model path (shipped)
 
-1. Real in-process GGUF inference of a *second* model (use **aximinds-zllama** `Transformer` + loadWeightsFromGGUF).
-2. llama.cpp / SGLang FFN tap calling `axinc_ffn_tap` (use **axi-stack** preffn patches + **SGLang-Plugin** hooks).
-3. Full KGDB injection from **AxiMinds-Substrate** + **AxiMinds-KGDBInference**.
-4. Ollama connection pool under load (**MCP-Inner-Monologue** pool.zig).
+1. **Ollama secondary**: `ModelHost.infer(.ollama)` → live `/api/chat` (or `test_ollama_reply` / `AXINC_MOCK_OLLAMA_REPLY` inject).
+2. **GGUF secondary**: `ModelHost.infer(.gguf)` → real tensor load + F32 weight probe (sum + fingerprint) via zllama parser — **not** full transformer decode.
+3. **C ABI**: `axinc_model_register` + `axinc_model_infer` success-tested with `src/models/fixtures/tiny.gguf`.
+
+## Deferred (post-MVP / larger ports)
+
+1. Full in-process GGUF **transformer forward** (**aximinds-zllama** `Transformer` + loadWeightsFromGGUF).
+2. llama.cpp / SGLang process FFN consumer calling `axinc_ffn_tap` (**axi-stack** preffn patches).
+3. Ollama multi-connection pool under load (**MCP-Inner-Monologue** pool.zig).
 
 ## Search commands used
 

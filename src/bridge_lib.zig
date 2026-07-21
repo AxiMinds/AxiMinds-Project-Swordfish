@@ -203,3 +203,21 @@ test "bridge C ABI init tap stats shutdown" {
     _ = axinc_ffn_tap(32);
     axinc_shutdown();
 }
+
+test "bridge C ABI axinc_model_infer GGUF success path" {
+    try std.testing.expectEqual(@as(c_int, 0), axinc_init());
+    defer axinc_shutdown();
+
+    // Register fixture GGUF (real parse + weight probe at register)
+    const path_z = "src/models/fixtures/tiny.gguf";
+    const slot = axinc_model_register(1, path_z); // 1 = gguf
+    try std.testing.expect(slot >= 0);
+
+    var out: [1024]u8 = undefined;
+    const n = axinc_model_infer(slot, "hello-weights", &out, out.len);
+    try std.testing.expect(n > 0);
+    const text = out[0..@intCast(n)];
+    try std.testing.expect(std.mem.indexOf(u8, text, "status=weight_probe_ok") != null);
+    try std.testing.expect(std.mem.indexOf(u8, text, "weight_probe_sum_f32=512") != null);
+    try std.testing.expect(std.mem.indexOf(u8, text, "token_embd.weight") != null);
+}

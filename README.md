@@ -221,16 +221,28 @@ MVP acceptance verified per plan.
 
 ## MVP Agent + Bridge (2026-07-21)
 
+**Verified offline MVP** (no live LLM required):
+
 ```bash
-# Offline continuous loop (axiASM + secondary model registration)
+zig build && zig build test
 zig build run -- agent --mock --ticks 2
-
-# Live Ollama (this host uses Docker Ollama on :11534)
-zig build run -- agent --endpoint http://127.0.0.1:11534 --model qwen3.5:0.8B --ticks 8
-
-# C library for llama.cpp / hosts
-#   zig-out/lib/libaxinc.so  — axinc_init, axinc_ffn_tap, axinc_load_axiasm,
-#   axinc_get_stats_json, axinc_model_register, axinc_model_infer, axinc_shutdown
+# Expect: GGUF secondary status=weight_probe_ok (sum=512), axiASM R3=30
 ```
 
-See `docs/SOURCES-GH.md` for AxiMinds repo ports used.
+**Secondary model paths (shipped):**
+- **GGUF**: real tensor weight probe (sum + fingerprint) via zllama parser — `status=weight_probe_ok`
+- **Ollama**: live `/api/chat` when daemon is warm; inject boundary `models.test_ollama_reply` for tests
+
+**C library** (`zig-out/lib/libaxinc.so`):
+`axinc_init`, `axinc_ffn_tap`, `axinc_load_axiasm`, `axinc_get_stats_json`,
+`axinc_model_register`, `axinc_model_infer`, `axinc_shutdown`
+
+**Live Ollama** (optional; this host Docker port **11534**):
+```bash
+zig build run -- agent --endpoint http://127.0.0.1:11534 --model qwen3.5:0.8B --ticks 4
+```
+Cold model load can take minutes; tags API may respond while generate still loads.
+
+**Deferred post-MVP:** full GGUF transformer forward; in-process llama.cpp FFN consumer.
+
+See `docs/SOURCES-GH.md`.

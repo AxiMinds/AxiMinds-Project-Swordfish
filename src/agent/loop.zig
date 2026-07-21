@@ -160,8 +160,9 @@ pub fn runLoop(allocator: std.mem.Allocator, io: std.Io, cfg: AgentConfig) !void
         defer allocator.free(user_msg);
 
         const llm: ollama.Result = if (cfg.mock_llm) blk: {
+            // Mock drives REAL secondary GGUF weight-probe infer (fixture), not a skip.
             const canned =
-                \\Plan: load axiASM then secondary model.
+                \\Plan: load axiASM then secondary GGUF model (real weight probe).
                 \\```axiasm
                 \\MOVI R1, 10
                 \\MOVI R2, 3
@@ -169,8 +170,8 @@ pub fn runLoop(allocator: std.mem.Allocator, io: std.Io, cfg: AgentConfig) !void
                 \\HALT
                 \\```
                 \\```model
-                \\ollama qwen3.5:0.8B
-                \\ping secondary
+                \\gguf src/models/fixtures/tiny.gguf
+                \\hello-weights
                 \\```
             ;
             break :blk .{
@@ -201,22 +202,17 @@ pub fn runLoop(allocator: std.mem.Allocator, io: std.Io, cfg: AgentConfig) !void
                 std.debug.print("{s}\n", .{feedback});
                 continue;
             };
-            if (cfg.mock_llm and parsed.kind == .ollama) {
-                std.debug.print("Secondary model slot={d} registered (mock skip live ollama infer)\n", .{slot});
+            // Always call real ModelHost.infer (GGUF weight probe or Ollama/inject).
+            const out = host.infer(allocator, io, slot, parsed.prompt) catch |err| {
                 allocator.free(feedback);
-                feedback = try std.fmt.allocPrint(allocator, "Secondary model slot={d} registered (mock). axiASM next.", .{slot});
-            } else {
-                const out = host.infer(allocator, io, slot, parsed.prompt) catch |err| {
-                    allocator.free(feedback);
-                    feedback = try std.fmt.allocPrint(allocator, "model infer error slot={d}: {}", .{ slot, err });
-                    std.debug.print("{s}\n", .{feedback});
-                    continue;
-                };
-                defer allocator.free(out);
-                std.debug.print("Secondary model output ({d} bytes):\n{s}\n", .{ out.len, out[0..@min(out.len, 600)] });
-                allocator.free(feedback);
-                feedback = try std.fmt.allocPrint(allocator, "Secondary model slot={d} ran OK ({d} bytes). Also emit axiASM if needed.", .{ slot, out.len });
-            }
+                feedback = try std.fmt.allocPrint(allocator, "model infer error slot={d}: {}", .{ slot, err });
+                std.debug.print("{s}\n", .{feedback});
+                continue;
+            };
+            defer allocator.free(out);
+            std.debug.print("Secondary model output ({d} bytes):\n{s}\n", .{ out.len, out[0..@min(out.len, 600)] });
+            allocator.free(feedback);
+            feedback = try std.fmt.allocPrint(allocator, "Secondary model slot={d} infer OK ({d} bytes). Also emit axiASM if needed.", .{ slot, out.len });
         }
 
         var cycles: u64 = 0;
