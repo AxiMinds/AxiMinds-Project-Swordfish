@@ -1,5 +1,10 @@
 // src/main.zig - Demo runner for AxiMinds axiNC (Zig 0.16)
 // Uses relative imports from src/ to avoid module path issues in bridge for exe.
+//
+// Modes:
+//   zig build run                  — cache/metrics demo (default)
+//   zig build run -- agent         — continuous Ollama(Qwen)+axiNC loop
+//   zig build run -- agent --model qwen3.5:0.8b --ticks 12
 const std = @import("std");
 const core = @import("core/types.zig");
 const engine_mod = @import("core/engine.zig");
@@ -7,11 +12,64 @@ const axicore = @import("core/axicore.zig");
 const isa = @import("isa/opcodes.zig");
 const assembler = @import("asm/assembler.zig");
 const debug = @import("dev/debug.zig");
+const agent_loop = @import("agent/loop.zig");
+const ollama = @import("bridge/ollama_client.zig");
 const log = std.log.scoped(.axinc_main);
 
-pub fn main() !void {
-    const allocator = std.heap.page_allocator;
+/// Zig 0.16 main signature: first parameter is `std.process.Init` (gpa + io + args).
+pub fn main(init: std.process.Init) !void {
+    const allocator = init.gpa;
+    const io = init.io;
+
+    var args = try std.process.Args.Iterator.initAllocator(init.minimal.args, allocator);
+    defer args.deinit();
+    _ = args.next(); // argv0
+
+    var mode_agent = false;
+    var model: []const u8 = "qwen3.5:0.8b";
+    var endpoint: []const u8 = "http://127.0.0.1:11434";
+    var ticks: u32 = 8;
+    var goal: ?[]const u8 = null;
+
+    while (args.next()) |a| {
+        if (std.mem.eql(u8, a, "agent") or std.mem.eql(u8, a, "--agent")) {
+            mode_agent = true;
+        } else if (std.mem.eql(u8, a, "--model")) {
+            model = args.next() orelse model;
+        } else if (std.mem.eql(u8, a, "--endpoint")) {
+            endpoint = args.next() orelse endpoint;
+        } else if (std.mem.eql(u8, a, "--ticks")) {
+            const t = args.next() orelse "8";
+            ticks = std.fmt.parseInt(u32, t, 10) catch 8;
+        } else if (std.mem.eql(u8, a, "--goal")) {
+            goal = args.next();
+        } else if (std.mem.eql(u8, a, "--help") or std.mem.eql(u8, a, "-h")) {
+            std.debug.print(
+                \\axinc — AxiMinds Neural Computer
+                \\  (default)          cache + metrics demo
+                \\  agent              Ollama/Qwen continuous NC loop
+                \\    --model NAME     default qwen3.5:0.8b
+                \\    --endpoint URL   default http://127.0.0.1:11434
+                \\    --ticks N        default 8
+                \\    --goal "text"    standing instructions override
+                \\
+            , .{});
+            return;
+        }
+    }
+
+    if (mode_agent) {
+        var cfg = agent_loop.AgentConfig{
+            .ollama = ollama.Config{ .endpoint = endpoint, .model = model },
+            .max_ticks = ticks,
+        };
+        if (goal) |g| cfg.standing_goal = g;
+        try agent_loop.runLoop(allocator, io, cfg);
+        return;
+    }
+
     std.debug.print("AxiMinds axicore (0.16) standalone demo with metrics\n", .{});
+    std.debug.print("(pass 'agent' for Ollama/Qwen continuous loop — see --help)\n", .{});
 
     var state = try core.MachineState.init(allocator);
     defer state.deinit(allocator);
