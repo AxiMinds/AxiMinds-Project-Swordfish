@@ -21,15 +21,23 @@ pub fn main() !void {
 
     // Demo: first executeTap populates via cachedOp miss+storeDeep (see alu); no pre-tap mutation
     const asm_src = 
-        \\MOVI R10, 50
+        \\MOVI R10, 3   ; reduced inner repeats so first tap(s) show lower start rates; rise visible across prints as repeats accumulate (per AC/natural)
         \\MOVI R1, 42
         \\MOVI R2, 7
         \\MOVI R20, 100
         \\MOVI R21, 4
-        \\MUL R3, 11, 2   ; early L4 fm (new keys) so L4 rate starts low (<100) and rises on repeats
-        \\MUL R4, 12, 2
-        \\MUL R5, 13, 2
-        \\MUL R6, 14, 2
+        \\MOVI R11, 11
+        \\MOVI R12, 2
+        \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low (<100) and rises on repeats
+        \\MOVI R13, 12
+        \\MOVI R14, 2
+        \\MUL R4, R13, R14
+        \\MOVI R15, 13
+        \\MOVI R16, 2
+        \\MUL R5, R15, R16
+        \\MOVI R17, 14
+        \\MOVI R18, 2
+        \\MUL R6, R17, R18
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
         \\MUL R5, R1, R2

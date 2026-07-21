@@ -644,14 +644,13 @@ pub const ShiftAdd = struct {
     /// the shipped cachedOp lookup path in executeTap will keep serving L4/L5.
     pub fn warmupDemoKeys(tricache: *Tricache) void {
         const keys = [_]u64{
-            computeKey(42, 7, 0x4D554C), // MUL -> deep (L4)
+            // note: skip pre-store of main MUL(42,7) so that early fm + first repeat MULs start with misses for visible L4 rise from low
             computeKey(294, 7, 0x4144),  // ADD -> L5 only
             computeKey(0, 1, 0x4C524E),  // LEARN like -> deep
         };
-        tricache.storeDeep(keys[0], 42 * 7);     // correct result for consistency with asm operand flow
-        tricache.storeL5Only(keys[1], 294 + 7);  // correct for L5 ADD key
-        tricache.storeDeep(keys[2], 42);         // LEARN-like -> L4 (deep)
-        // no lookup here: first serves come from the demo program's execution during taps (rates build during taps)
+        tricache.storeL5Only(keys[0], 294 + 7);  // correct for L5 ADD key
+        tricache.storeDeep(keys[1], 42);         // LEARN-like -> L4 (deep)
+        // main repeat MUL key will miss+storeDeep on first use in asm (organic L4 rise); fm early MULs also cause initial L4 serves
     }
 
     pub fn invalidateL3ForKey(tricache: *Tricache, key: u64) void {
