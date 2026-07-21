@@ -21,7 +21,7 @@ pub fn main() !void {
 
     // Demo: first executeTap populates via cachedOp miss+storeDeep (see alu); no pre-tap mutation
     const asm_src = 
-        \\MOVI R10, 3   ; reduced inner repeats so first tap(s) show lower start rates; rise visible across prints as repeats accumulate (per AC/natural)
+        \\MOVI R10, 1   ; 1 iter per tap so first 256 cycles has minimal repeats of key -> L4 rate starts low (misses), rises over taps as serves accumulate on repeats + L5 post
         \\MOVI R1, 42
         \\MOVI R2, 7
         \\MOVI R20, 100
@@ -40,26 +40,10 @@ pub fn main() !void {
         \\MUL R6, R17, R18
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
-        \\MUL R3, R1, R2
         \\MUL R4, R1, R2
         \\MUL R5, R1, R2
         \\MUL R6, R1, R2
@@ -69,56 +53,39 @@ pub fn main() !void {
         \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
+        \\MUL R3, R1, R2
+        \\MUL R4, R1, R2
+        \\MUL R3, R1, R2
+        \\MUL R4, R1, R2
         \\MUL R4, R1, R2
         \\MUL R5, R1, R2
         \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R4, R1, R2
         \\MUL R5, R1, R2
         \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
+loop:
         \\DEC R10
-        \\JNZ 2
+        \\JNZ loop
         \\MOVI R3, 294
         \\MOVI R2, 7
         \\ADD R6, R3, R2
@@ -146,7 +113,7 @@ pub fn main() !void {
         \\EMIT R10
         \\FUSE R1
         \\HOOK 0
-        \\JMP 2
+        \\JMP loop
     ;
     debug.trace("MT-006");
     const prog = try assembler.assemble(allocator, asm_src);
@@ -192,7 +159,7 @@ pub fn main() !void {
         });
 
         const learn_rate = if (elapsed_s > 0) @as(f64, @floatFromInt(stats.custom_opcodes)) / elapsed_s else 0;
-        // rates now from engine.getStats which uses tricache.stats() (memo folded via l5_serves bump in cachedOp)
+        // rates now from engine.getStats which calls tricacheHitRates (memo/SPZA folded into l4/l5)
         // (one metrics fn)
         std.debug.print("  AI REAL: learn_rate={d:.2}/s fused={d} vram_mb={d} ctx_eff={d:.1}% (l4={d:.1}% l5={d:.1}%)\n", .{
             learn_rate,

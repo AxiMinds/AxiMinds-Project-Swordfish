@@ -402,15 +402,26 @@ pub const Engine = struct {
         const cs = self.axicore_ctx.tricache.stats();
         const ms = self.axicore_ctx.memo_serves;
         const mh = if (self.axicore_ctx.memo) |m| m.total_hits else 0;
-        // use probe/serve rates from tricache (serve time counters); memo as l5 counted in lookup path
+        // wire tricacheHitRates (was defined but unused) and fold memo into l4/l5 rates per gaps
+        const folded = @import("axicore.zig").tricacheHitRates(.{
+            .l1_serves = cs.l1_serves,
+            .l2_serves = cs.l2_serves,
+            .l3_serves = cs.l3_serves,
+            .l4_serves = cs.l4_serves,
+            .l5_serves = cs.l5_serves,
+            .misses = cs.full_misses,
+            .lookups = cs.total_lookups,
+            .memo_serves = ms,
+            .memo_hits = mh,
+        });
         return .{
             .total_cycles = self.state.total_cycles,
             .total_instructions = self.state.total_instructions,
             .custom_opcodes = self.state.custom_opcodes,
             .total_fused_ops = self.state.total_fused_ops,
-            .tricache_overall_hit_rate = cs.overall_hit_rate,
-            .tricache_l4_hit_rate = cs.l4_hit_rate,
-            .tricache_l5_hit_rate = cs.l5_hit_rate,
+            .tricache_overall_hit_rate = folded.overall_hit_rate,
+            .tricache_l4_hit_rate = folded.l4_hit_rate,
+            .tricache_l5_hit_rate = folded.l5_hit_rate,
             .energy_saved = self.axicore_ctx.energy_saved_estimate,
             .vram_usage_mb = self.state.vramUsageMB(),
             .dream_mode = self.state.dream_mode,

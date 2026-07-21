@@ -34,8 +34,8 @@ ls l4_cache/ > "$SCRATCH/artifacts-l4.log" 2>&1 || true
 ls l5_shards/ > "$SCRATCH/artifacts-l5.log" 2>&1 || true
 
 # verif-final: cleaned concat of rate/trace lines only (strip NC SELF-MOD/NC op banners for pure raw)
-grep -E '\[T\+|AI REAL' "$SCRATCH/run1.log" > "$SCRATCH/verif-final.log" 2>/dev/null || true
-grep -E '\[T\+|AI REAL' "$SCRATCH/run2.log" >> "$SCRATCH/verif-final.log" 2>/dev/null || true
+grep -E '\[T\+|AI REAL' "$SCRATCH/run1.log" | grep -v -E 'SELF-MOD|NC-' > "$SCRATCH/verif-final.log" 2>/dev/null || true
+grep -E '\[T\+|AI REAL' "$SCRATCH/run2.log" | grep -v -E 'SELF-MOD|NC-' >> "$SCRATCH/verif-final.log" 2>/dev/null || true
 
 # post-conditions: first (l4= l5=) lines from run1 and run2 must match (uniform)
 grep -o '(l4=[^)]*)' "$SCRATCH/run1.log" | head -1 > "$SCRATCH/_r1_first_rate.txt" || true
