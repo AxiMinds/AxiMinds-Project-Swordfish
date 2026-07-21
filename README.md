@@ -218,3 +218,19 @@ MVP acceptance verified per plan.
 - Industry benchmarks vs nCPU + detailed analysis (current bench shows ~6-8M IPS RF, 99%+ 5L hits, real energy)
 - v* vector opcodes full dispatch, deeper INT1/SMURFS, full MEP routing, parallelism hints for hot paths (KG/traversal/memo/tile)
 - Complete pre-FFN/continuous loop integration + full 5-stage KGDB inference end-to-end (design + partial wiring done)
+
+## MVP Agent + Bridge (2026-07-21)
+
+```bash
+# Offline continuous loop (axiASM + secondary model registration)
+zig build run -- agent --mock --ticks 2
+
+# Live Ollama (this host uses Docker Ollama on :11534)
+zig build run -- agent --endpoint http://127.0.0.1:11534 --model qwen3.5:0.8B --ticks 8
+
+# C library for llama.cpp / hosts
+#   zig-out/lib/libaxinc.so  — axinc_init, axinc_ffn_tap, axinc_load_axiasm,
+#   axinc_get_stats_json, axinc_model_register, axinc_model_infer, axinc_shutdown
+```
+
+See `docs/SOURCES-GH.md` for AxiMinds repo ports used.
