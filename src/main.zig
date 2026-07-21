@@ -125,7 +125,7 @@ pub fn main() !void {
         \\EMIT R10
         \\FUSE R1
         \\HOOK 0
-        \\JMP loop
+        \\HALT   ; end pass after one execution (early unique + body once + post); outer taps accumulate hits for rise, first pass low L4 rate
     ;
     debug.trace("MT-006");
     const prog = try assembler.assemble(allocator, asm_src);
