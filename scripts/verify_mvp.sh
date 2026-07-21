@@ -52,5 +52,14 @@ diff "$SCRATCH/_r1_first_rate.txt" "$SCRATCH/_r2_first_rate.txt" || { echo "firs
 test -s "$SCRATCH/run1.log"
 test -s "$SCRATCH/run2.log"
 
+# final per-level >=95% check from last AI REAL line in run2 (real demo path, not just unit)
+last_line=$(grep 'AI REAL' "$SCRATCH/run2.log" | tail -1)
+l4_val=$(echo "$last_line" | grep -o 'l4=[0-9.]*' | sed 's/l4=//')
+l5_val=$(echo "$last_line" | grep -o 'l5=[0-9.]*' | sed 's/l5=//')
+# require both >=95 (use awk for float compare; if missing treat as fail)
+if ! echo "$l4_val $l5_val" | awk '{ if ($1+0 >= 95 && $2+0 >= 95) exit 0; else exit 1; }'; then
+    echo "final per-level <95: l4=${l4_val:-?} l5=${l5_val:-?}"; exit 1;
+fi
+
 echo "verify ok" > "$SCRATCH/verify-ok.txt"
 echo "Atomic verify complete"

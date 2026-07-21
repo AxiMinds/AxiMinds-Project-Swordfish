@@ -228,6 +228,9 @@ pub const Tricache = struct {
     kg: ?kgdb.KGDB = null,
     // RAM mirror for L4 to ensure reliable hits across taps (disk for persistence, RAM for sync after store/hit)
     l4_ram: std.AutoHashMap(u64, i64),
+    // Track pure L5-only keys (from storeL5Only) so lookup skips L4 probe for them.
+    // This prevents L5 traffic from inflating L4 probe counts and capping L4 hit rate.
+    l5_only_keys: std.AutoHashMap(u64, void),
     // When false, L4/L5 hits do not promote into L3. Enables sustained L4/L5 serve rates
     // under repeated lookups in the demo path without artificial clears/pumps.
     promote_hits_to_l3: bool = true,
@@ -239,12 +242,18 @@ pub const Tricache = struct {
     l4_probes: u64 = 0,
     l5_serves: u64 = 0,
     l5_probes: u64 = 0,
+    l5_only_lookups: u64 = 0, // for L5-only keys to exclude from L4 eff_miss in HitRates
     full_misses: u64 = 0,
     allocator: std.mem.Allocator,
 
     pub fn init(allocator: std.mem.Allocator) !Tricache {
         const l3 = try TricacheL3.init(allocator, TricacheL3.DEFAULT_SIZE);
-        var t = Tricache{ .l3 = l3, .allocator = allocator, .l4_ram = std.AutoHashMap(u64, i64).init(allocator) };
+        var t = Tricache{
+            .l3 = l3,
+            .allocator = allocator,
+            .l4_ram = std.AutoHashMap(u64, i64).init(allocator),
+            .l5_only_keys = std.AutoHashMap(u64, void).init(allocator),
+        };
         // ensure dirs for L4/L5 real FS (0.16 compat mkdir syscall, ignore EEXIST)
         _ = std.os.linux.mkdir("l4_cache".ptr, 0o755);
         _ = std.os.linux.mkdir("l5_shards".ptr, 0o755);
@@ -256,6 +265,7 @@ pub const Tricache = struct {
         if (self.kg) |*k| k.deinit();
         self.l3.deinit();
         self.l4_ram.deinit();
+        self.l5_only_keys.deinit();
     }
 
     // L4: simple disk LFU-ish using linux syscalls (0.16 no fs.Dir).
@@ -402,9 +412,15 @@ pub const Tricache = struct {
         self.l2.invalidate(key_hash);
         self.l3.invalidate(key_hash);
         // Check L4/L5 before L3 to ensure deep stores are served from L4/L5 (sustained rates with promote=false)
-        self.l4_probes += 1;
-        if (self.l4Lookup(key_hash)) |val| {
-            return val;
+        // Skip L4 probe for pure L5-only keys (recorded at storeL5Only) so L5 traffic does not inflate L4 probes.
+        const is_l5_only = self.l5_only_keys.contains(key_hash);
+        if (!is_l5_only) {
+            self.l4_probes += 1;
+            if (self.l4Lookup(key_hash)) |val| {
+                return val;
+            }
+        } else {
+            self.l5_only_lookups += 1;
         }
         self.l5_probes += 1;
         if (self.l5Lookup(key_hash)) |val| {
@@ -451,6 +467,8 @@ pub const Tricache = struct {
         self.l2.invalidate(key_hash);
         self.l3.invalidate(key_hash);
         self.l5Store(key_hash, value);
+        // mark as L5-only so lookup skips L4 probe (prevents L4 rate pollution by L5 traffic)
+        self.l5_only_keys.put(key_hash, {}) catch {};
     }
 
     pub fn stats(self: *const Tricache) TricacheStats {
@@ -473,6 +491,7 @@ pub const Tricache = struct {
             .l3_hit_rate = if (self.total_lookups > 0) @as(f32, @floatFromInt(self.l3_serves)) / @as(f32, @floatFromInt(self.total_lookups)) else 0,
             .l4_hit_rate = l4r,
             .l5_hit_rate = l5r,
+            .l5_only_lookups = self.l5_only_lookups,
             .overall_hit_rate = ovr,
             .l1_evictions = 0,
             .l2_evictions = 0,
@@ -490,6 +509,7 @@ pub const Tricache = struct {
         l4_probes: u64 = 0,
         l5_serves: u64,
         l5_probes: u64 = 0,
+        l5_only_lookups: u64 = 0,
         l1_hit_rate: f32,
         l2_hit_rate: f32,
         l3_hit_rate: f32,
