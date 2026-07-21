@@ -30,6 +30,10 @@ $ZIG build --summary all > "$SCRATCH/audit-build-r2.log" 2>&1; echo $? > "$SCRAT
 
 $ZIG test src/kgdb/root.zig > "$SCRATCH/kgdb-test.log" 2>&1; echo $? > "$SCRATCH/kgdb-test.log.exit"
 
+# capture 5L RAW from shipped demo runs (real path, after runs created)
+echo '=== 5L RAW from run1/run2 (shipped demo) ===' >> "$SCRATCH/audit-test.log"
+grep -E '5L TEST RAW \(demo path\)' "$SCRATCH/run1.log" "$SCRATCH/run2.log" | cat >> "$SCRATCH/audit-test.log" || true
+
 # html / artifacts (no extra)
 wc -l demo-ocean.html > "$SCRATCH/html-check.log" 2>&1 || true
 grep -E 'nc-pane|nc-log|data-real-trace|canvas id="ocean"' demo-ocean.html >> "$SCRATCH/html-check.log" 2>&1 || true
