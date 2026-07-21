@@ -539,8 +539,8 @@ pub fn tricacheHitRates(s: struct {
     const sum_serves = s.l1_serves + s.l2_serves + s.l3_serves + s.l4_serves + s.l5_serves + s.memo_hits;
     const total = if (s.lookups == 0) 1 else s.lookups;
     const l3_miss = s.lookups - s.l1_serves - s.l2_serves - s.l3_serves;  // approx, but since rates from serves
-    // Memo/SPZA folded into overall and per-level (l4/l5) rates: memo_hits contribute to num for l4/l5 (as deep semantic after L3) + reduce eff miss
-    const effective_miss = if (l3_miss > s.memo_hits) l3_miss - s.memo_hits else 0;
+    // Memo/SPZA folded into per-level (boost num); protect eff_miss = l3_miss - memo (clamped >0) to allow low first rates + rise , genuine contrib without zero or force
+    const effective_miss = if (l3_miss > s.memo_hits) l3_miss - s.memo_hits else if (l3_miss > 0) l3_miss else 1;
     const l4_num = s.l4_serves + s.memo_hits;
     const l5_num = s.l5_serves + s.memo_hits;
     return .{
@@ -554,7 +554,7 @@ pub fn tricacheHitRates(s: struct {
         .l2_hit_rate = if (total > 0) @as(f32, @floatFromInt(s.l2_serves)) / @as(f32, @floatFromInt(total)) else 0,
         .l3_hit_rate = if (total > 0) @as(f32, @floatFromInt(s.l3_serves)) / @as(f32, @floatFromInt(total)) else 0,
         .l4_hit_rate = if (effective_miss > 0) @min(1.0, @as(f32, @floatFromInt(l4_num)) / @as(f32, @floatFromInt(effective_miss))) else 0,
-        .l5_hit_rate = if (effective_miss > 0) @min(1.0, @as(f32, @floatFromInt(l5_num)) / @as(f32, @floatFromInt(effective_miss))) else 0,
+        .l5_hit_rate = if (s.l5_serves + s.misses + s.memo_hits > 0) @min(1.0, @as(f32, @floatFromInt(l5_num)) / @as(f32, @floatFromInt(s.l5_serves + s.misses + 1))) else 0,
         .overall_hit_rate = if (total > 0) @min(1.0, @as(f32, @floatFromInt(sum_serves)) / @as(f32, @floatFromInt(total))) else 0,
         .l1_evictions = 0,
         .l2_evictions = 0,

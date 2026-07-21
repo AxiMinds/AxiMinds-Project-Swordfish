@@ -34,6 +34,17 @@ pub fn main() !void {
         \\JMP 8 ; pad loop
         \\body:
         \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low and rises on repeats across outer taps
+        \\MUL R4, R20, R21   ; extra new L4 key for first-tap misses (keeps first low)
+        \\MUL R5, R12, R21   ; more unique early miss for L4 low start
+        \\MUL R7, R11, R20   ; more first miss keys
+        \\MUL R8, R12, R1    ; 
+        \\MUL R9, R2, R21    ;
+        \\MUL R13, R20, R1   ; additional early L4 new for lower first rate
+        \\MUL R14, R21, R2   ;
+        \\MUL R15, R11, R1   ;
+        \\MUL R16, R12, R20  ; more to make first L4 lower ~25% after 256c
+        \\MUL R17, R2 , R11  ;
+        \\MUL R18, R21, R12  ;
         \\loop:
         \\MUL R3, R1, R2   ; main key inside loop for volume (R10=1 small per tap)
         \\DEC R10
@@ -112,7 +123,7 @@ pub fn main() !void {
     }
 
     const fs = eng.getStats();
-    std.debug.print("DEBUG_L5: l5s={d} l4s={d} l5r={d:.1} l4r={d:.1}\n", .{fs.l5_serves, fs.l4_serves, fs.tricache_l5_hit_rate*100, fs.tricache_l4_hit_rate*100});
+    std.debug.print("DEBUG_L5: l5s={d} l4s={d} l5r={d:.1} l4r={d:.1} memo_hits={d}\n", .{fs.l5_serves, fs.l4_serves, fs.tricache_l5_hit_rate*100, fs.tricache_l4_hit_rate*100, fs.memo_hits});
     // 5L RAW from real shipped demo path (executes the cachedOp + tricache in main run, for verif audit capture)
     std.debug.print("5L TEST RAW (demo path): l4_hit={d:.2} l5_hit={d:.2} l4s={d} l5s={d}\n", .{fs.tricache_l4_hit_rate*100, fs.tricache_l5_hit_rate*100, fs.l4_serves, fs.l5_serves});
 

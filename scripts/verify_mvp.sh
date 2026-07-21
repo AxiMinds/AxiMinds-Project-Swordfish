@@ -12,11 +12,18 @@ mkdir -p "$SCRATCH" l4_cache l5_shards
 # builds with .exit , use --summary all for raw transcript in logs (even success)
 $ZIG build --summary all > "$SCRATCH/audit-build.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/audit-build.log.exit"
 $ZIG build test --summary all 2>&1 | cat > "$SCRATCH/audit-test-full.log"; rc=$?; echo $rc > "$SCRATCH/audit-test.log.exit"
-# raw 5L on clean post-rm: extract from full build test output (5L test now in engine.zig, reachable)
+# raw 5L on clean post-rm: extract from full build test output (5L test in main.zig under exe root test, using shipped getStats folded)
 echo '=== RAW 5L TEST ASSERTS (clean post-rm via build test) ===' >> "$SCRATCH/audit-test.log"
 grep -E '5L TEST RAW|l4_hit|l5_hit|assert' "$SCRATCH/audit-test-full.log" | cat >> "$SCRATCH/audit-test.log" || true
 # append summary for reference (no standalone axicore test)
 cat "$SCRATCH/audit-test-full.log" | tail -10 >> "$SCRATCH/audit-test.log" || true
+# enforce the mixed volume first-miss+repeat + l5_only unit test (via real cachedOp/getStats) actually ran and >=0.95
+unit5l=$(grep '5L TEST RAW (mixed first-miss+repeat l5_only)' "$SCRATCH/audit-test-full.log" | tail -1 || true)
+u_l4=$(echo "$unit5l" | grep -o 'l4_hit=[0-9.]*' | sed 's/l4_hit=//' || true)
+u_l5=$(echo "$unit5l" | grep -o 'l5_hit=[0-9.]*' | sed 's/l5_hit=//' || true)
+if ! echo "$u_l4 $u_l5" | awk '{ if ($1+0 >= 0.95 && $2+0 >= 0.95) exit 0; else exit 1; }'; then
+  echo "unit 5L mixed (first-miss+repeat l5_only) <0.95: l4=${u_l4:-?} l5=${u_l5:-?}"; exit 1;
+fi
 $ZIG build bench --summary all > "$SCRATCH/verif-bench.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/verif-bench.log.exit"
 
 # runs with clean , .exit ; pre-builds with summary for raw content
