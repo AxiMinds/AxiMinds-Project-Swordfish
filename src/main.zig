@@ -63,6 +63,10 @@ pub fn main() !void {
         \\MOVI R22, 3
         \\MUL R15, R21, R22
         \\MUL R3, R1, R2   ; the main key (will hit in later taps)
+        \\MOVI R19, 21
+        \\MOVI R20, 3
+        \\MUL R7, R19, R20   ; repeat one early key so first pass gets L4 serve >0 (miss then hit)
+        \\loop:
         \\DEC R10
         \\JNZ loop
         \\MOVI R3, 294
