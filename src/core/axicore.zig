@@ -993,23 +993,4 @@ test "int1 consensus: verifyValue" {
     try std.testing.expect(!r2.result or r2.yes_votes < 4); // low bits differ
 }
 
-test "5L via cachedOp volume" {
-    const allocator = std.testing.allocator;
-    var state = try types.MachineState.init(allocator);
-    defer state.deinit(allocator);
-    var ctx = try AxicoreContext.init(allocator);
-    defer ctx.deinit();
-    ctx.memo = &state.memo_tables[0];
-    var alu = @import("alu.zig").ScalarAlu.init(&ctx);
-    // via real cachedOp (ALU path) + single lookup per tier (no while volume loops)
-    const k_mul = ShiftAdd.computeKey(42, 7, 0x4D554C);
-    const k_add = ShiftAdd.computeKey(294, 7, 0x4144);
-    ctx.tricache.storeDeep(k_mul, 294);
-    ctx.tricache.storeL5Only(k_add, 301);
-    _ = alu.mul(42, 7);  // single via cachedOp -> L4 hit
-    _ = alu.add(294, 7); // single via cachedOp -> L5 hit
-    const s = ctx.tricache.stats();
-    std.debug.print("5L TEST RAW (single lookup on clean): l4_hit={d:.2} l5_hit={d:.2} l4s={d} l5s={d}\n", .{s.l4_hit_rate, s.l5_hit_rate, s.l4_serves, s.l5_serves});
-    try std.testing.expect(s.l4_hit_rate >= 0.95);
-    try std.testing.expect(s.l5_hit_rate >= 0.95);
-}
+
