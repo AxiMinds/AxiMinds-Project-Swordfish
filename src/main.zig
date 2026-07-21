@@ -149,7 +149,7 @@ test "5L via cachedOp" {
     const allocator = std.testing.allocator;
     var state = try core.MachineState.init(allocator);
     defer state.deinit(allocator);
-    // isolate this test: use unique dirs (low-level like axicore) + clear pre-pop model memo so our keys miss first and rates reflect real mixed first-miss+repeat on shipped cachedOp/getStats path (no pollution from other tests in suite)
+    // isolate this test: use unique dirs (low-level like axicore) + clear pre-pop model memo + unlink our keys' .axl4 + clear ram maps so our keys miss first even on re-run of test binary (real first-miss for rate calc)
     _ = std.os.linux.mkdir("l4_5l_pure".ptr, 0o755);
     _ = std.os.linux.mkdir("l5_5l_pure".ptr, 0o755);
     if (state.memo_tables.len > 0) {
@@ -159,6 +159,17 @@ test "5L via cachedOp" {
     defer eng.deinit();
     eng.axicore_ctx.tricache.l4_dir = "l4_5l_pure";
     eng.axicore_ctx.tricache.l5_dir = "l5_5l_pure";
+    // force first miss for our exact keys (unlink any prior .axl4 from previous execution in same or prior bin run)
+    const key_mul = axicore.ShiftAdd.computeKey(42, 7, 0x4D554C);
+    const key_add = axicore.ShiftAdd.computeKey(294, 7, 0x4144);
+    var buf1: [64]u8 = undefined;
+    const n1 = std.fmt.bufPrintZ(&buf1, "l4_5l_pure/{x:0>16}.axl4", .{key_mul}) catch &[_:0]u8{};
+    _ = std.os.linux.unlink(n1.ptr);
+    var buf2: [64]u8 = undefined;
+    const n2 = std.fmt.bufPrintZ(&buf2, "l4_5l_pure/{x:0>16}.axl4", .{key_add}) catch &[_:0]u8{};
+    _ = std.os.linux.unlink(n2.ptr);
+    eng.axicore_ctx.tricache.l4_ram.clearRetainingCapacity();
+    eng.axicore_ctx.tricache.l5_only_keys.clearRetainingCapacity();
     eng.axicore_ctx.tricache.promote_hits_to_l3 = false;
     // mixed volume, first-miss+repeat on L4 (mul) and L5-only (add via storeL5Only path) to exercise probe skip and rates
     // first calls: miss (no pre-store), cachedOp will storeDeep / storeL5Only inside
