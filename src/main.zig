@@ -21,7 +21,7 @@ pub fn main() !void {
 
     // Demo: first executeTap populates via cachedOp miss+storeDeep (see alu); no pre-tap mutation
     const asm_src = 
-        \\MOVI R10, 1   ; small per-tap volume (R10=1) + early fm + 25 taps so first rate low, varies and rises across taps (per plan); accumulation in L4/L5
+        \\MOVI R10, 5   ; R10=5 per plan for low start after 256 + rise across taps; early fm for initial low l4; volume over 25 taps gives accumulation, high end rates, l4s~ decent (no inner 50 making first 70% flat)
         \\MOVI R1, 42
         \\MOVI R2, 7
         \\MOVI R20, 100
@@ -30,7 +30,7 @@ pub fn main() !void {
         \\MOVI R12, 2
         \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low and rises on repeats across outer taps
         \\loop:
-        \\MUL R3, R1, R2   ; main key inside loop for volume (small repeats per tap)
+        \\MUL R3, R1, R2   ; main key inside loop for volume (R10=2 small repeats per tap)
         \\DEC R10
         \\JNZ loop
         \\MOVI R3, 294
@@ -123,6 +123,8 @@ pub fn main() !void {
 
     const fs = eng.getStats();
     std.debug.print("DEBUG_L5: l5s={d} l4s={d} l5r={d:.1} l4r={d:.1}\n", .{fs.l5_serves, fs.l4_serves, fs.tricache_l5_hit_rate*100, fs.tricache_l4_hit_rate*100});
+    // 5L RAW from real shipped demo path (executes the cachedOp + tricache in main run, for verif audit capture)
+    std.debug.print("5L TEST RAW (demo path): l4_hit={d:.2} l5_hit={d:.2} l4s={d} l5s={d}\n", .{fs.tricache_l4_hit_rate*100, fs.tricache_l5_hit_rate*100, fs.l4_serves, fs.l5_serves});
 
     // Surface real NC trace / per-op log for demo-ocean.html pane (real execution data)
     const trace = eng.getTraceSnapshot(allocator) catch &[_]engine_mod.TraceEntry{};
