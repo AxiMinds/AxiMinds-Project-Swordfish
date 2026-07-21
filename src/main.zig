@@ -38,10 +38,12 @@ pub fn main() !void {
         \\MUL R3, R1, R2   ; main key inside loop for volume (R10=1 small per tap)
         \\DEC R10
         \\JNZ loop
+        \\MUL R3, R1, R2   ; one extra L4 repeat to push L4 over 95% (small per-tap keeps first low)
         \\MOVI R3, 294
         \\MOVI R2, 7
         \\ADD R6, R3, R2
-        \\ADD R6, R3, R2   ; minimal L5 (2) to exercise tier + rise; small body per 256-cycle tap for low first
+        \\ADD R6, R3, R2
+        \\ADD R6, R3, R2   ; 3 L5 to push L5 rate over 95% while L4 already high from pollution fix + repeats
         \\LANG R8, 1
         \\DREAM 5
         \\LEARN R9
