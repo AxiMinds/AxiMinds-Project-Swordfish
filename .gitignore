@@ -9,3 +9,6 @@ zig-out/
 *.log
 tmp/
 /zig-0.16
+*.axl4
+l4_cache/
+l5_shards/
