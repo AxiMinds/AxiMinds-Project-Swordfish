@@ -26,10 +26,10 @@ pub fn main() !void {
         \\MOVI R2, 7
         \\MOVI R20, 100
         \\MOVI R21, 4
-        \\MUL R3, R1, R2
-        \\MUL R4, R1, R2
-        \\MUL R5, R1, R2
-        \\MUL R6, R1, R2
+        \\MUL R3, 11, 2   ; early L4 fm (new keys) so L4 rate starts low (<100) and rises on repeats
+        \\MUL R4, 12, 2
+        \\MUL R5, 13, 2
+        \\MUL R6, 14, 2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
         \\MUL R5, R1, R2
