@@ -83,6 +83,18 @@ pub fn main() !void {
         \\MUL R4, R1, R2
         \\MUL R3, R1, R2
         \\MUL R4, R1, R2
+        \\MOVI R19, 21
+        \\MOVI R20, 3
+        \\MUL R11, R19, R20   ; unique early for L4 miss probes to start low
+        \\MOVI R21, 22
+        \\MOVI R22, 3
+        \\MUL R12, R21, R22
+        \\MOVI R23, 23
+        \\MOVI R24, 3
+        \\MUL R13, R23, R24
+        \\MOVI R25, 24
+        \\MOVI R26, 3
+        \\MUL R14, R25, R26   ; more unique to dominate early probes with misses
         \\loop:
         \\DEC R10
         \\JNZ loop
