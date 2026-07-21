@@ -11,12 +11,12 @@ mkdir -p "$SCRATCH" l4_cache l5_shards
 
 # builds with .exit , use --summary all for raw transcript in logs (even success)
 $ZIG build --summary all > "$SCRATCH/audit-build.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/audit-build.log.exit"
-$ZIG build test --summary all > "$SCRATCH/audit-test.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/audit-test.log.exit"
-# append raw 5L test asserts output on clean (post-rm) state via build test (standalone may have import err; build context runs the print)
+$ZIG build test 2>&1 | cat > "$SCRATCH/audit-test-full.log"; rc=$?; echo $rc > "$SCRATCH/audit-test.log.exit"
+# raw 5L on clean post-rm: extract from full build test output (runs tests in package context, prints the RAW line)
 echo '=== RAW 5L TEST ASSERTS (clean post-rm via build test) ===' >> "$SCRATCH/audit-test.log"
-$ZIG build test 2>&1 | grep -E '5L TEST RAW|l4_hit|l5_hit|assert|5L via' | cat >> "$SCRATCH/audit-test.log" || true
-# also try filter for any output
-$ZIG test src/core/axicore.zig --test-filter "5L via cachedOp" 2>&1 | cat >> "$SCRATCH/audit-test.log" || true
+grep -E '5L TEST RAW|l4_hit|l5_hit|assert' "$SCRATCH/audit-test-full.log" | cat >> "$SCRATCH/audit-test.log" || true
+# append summary for reference
+cat "$SCRATCH/audit-test-full.log" | tail -10 >> "$SCRATCH/audit-test.log" || true
 $ZIG build bench --summary all > "$SCRATCH/verif-bench.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/verif-bench.log.exit"
 
 # runs with clean , .exit ; pre-builds with summary for raw content
