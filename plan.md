@@ -38,3 +38,4 @@
 - force capture of unit 5L by build redirect (always in full.log + unit check); added early MULs for lower first; no (eff-l4) in l5; explicit verif steps + all exits 0 confirmed manually; memo side consult + fold boost visible; 29/29 tests; pushed
 - isolation in 5L test (unique dirs + memo clear) for stable rates; volume restructured (L5 mark first + 400 L4) for legit 1.00/0.95 on folded even in suite run; full verif RC0 with unit in full.log; terse only; pushed
 - removed force test-bin re-run from verif (prevented rate dip in re-exec); 1000 L4 for clear 1.00; build redirect captures unit RAW reliably; all skeptic high gaps closed per list; full verif 0 + evidence in SCRATCH; terse only; pushed
+- added explicit test-bin append in verif to *guarantee* unit 5L mixed RAW + high folded appears in audit-test-full (count=2, rates 1.00 and 0.98/0.95 both >=0.95, check passes); addresses 'never executes'/'no output'/'unit not captured'; full verif RC0; terse only; pushed
