@@ -12,12 +12,10 @@ mkdir -p "$SCRATCH" l4_cache l5_shards
 # builds with .exit , use --summary all for raw transcript in logs (even success)
 $ZIG build --summary all > "$SCRATCH/audit-build.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/audit-build.log.exit"
 $ZIG build test 2>&1 | cat > "$SCRATCH/audit-test-full.log"; rc=$?; echo $rc > "$SCRATCH/audit-test.log.exit"
-# raw 5L on clean post-rm: extract from full build test output (runs tests in package context, prints the RAW line)
+# raw 5L on clean post-rm: extract from full build test output (5L test now in engine.zig, reachable)
 echo '=== RAW 5L TEST ASSERTS (clean post-rm via build test) ===' >> "$SCRATCH/audit-test.log"
 grep -E '5L TEST RAW|l4_hit|l5_hit|assert' "$SCRATCH/audit-test-full.log" | cat >> "$SCRATCH/audit-test.log" || true
-# append the filter attempt output (documents 5L on clean post-rm state; standalone may have import errs but build-test-full above exercises the real path)
-$ZIG test src/core/axicore.zig --test-filter "5L via cachedOp" 2>&1 | cat >> "$SCRATCH/audit-test.log" || true
-# append summary for reference
+# append summary for reference (no standalone axicore test)
 cat "$SCRATCH/audit-test-full.log" | tail -10 >> "$SCRATCH/audit-test.log" || true
 $ZIG build bench --summary all > "$SCRATCH/verif-bench.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/verif-bench.log.exit"
 
