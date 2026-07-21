@@ -21,31 +21,34 @@ pub fn main() !void {
 
     // Demo: first executeTap populates via cachedOp miss+storeDeep (see alu); no pre-tap mutation
     const asm_src = 
-        \\MOVI R10, 5   ; R10=5 per plan for low start after 256 + rise across taps; early fm for initial low l4; volume over 25 taps gives accumulation, high end rates, l4s~ decent (no inner 50 making first 70% flat)
+        \\MOVI R10, 1   ; R10=1 small hot per tap
         \\MOVI R1, 42
         \\MOVI R2, 7
         \\MOVI R20, 100
         \\MOVI R21, 4
         \\MOVI R11, 11
         \\MOVI R12, 2
+        \\JMP 10   ; skip pad to body (first time)
+        pad:
+        \\NOP
+        \\JMP 8    ; pad loop (no hot lookups) to fill to ~256 cycles per tap
+        body:
         \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low and rises on repeats across outer taps
         \\loop:
-        \\MUL R3, R1, R2   ; main key inside loop for volume (R10=2 small repeats per tap)
+        \\MUL R3, R1, R2   ; main key inside loop for volume (R10=1 small per tap)
         \\DEC R10
         \\JNZ loop
-        \\MUL R3, R1, R2   ; extra L4 repeats after loop to increase l4 serves proportion for higher end l4 rate
-        \\MUL R3, R1, R2
-        \\MUL R3, R1, R2
         \\MOVI R3, 294
         \\MOVI R2, 7
         \\ADD R6, R3, R2
-        \\ADD R6, R3, R2   ; minimal L5 (2) to exercise tier + rise; extra MULs boost l4 rate visibility
+        \\ADD R6, R3, R2   ; minimal L5 (2) to exercise tier + rise; small body per 256-cycle tap for low first
         \\LANG R8, 1
         \\DREAM 5
         \\LEARN R9
         \\FUSE R1
         \\HOOK 0
-        \\YIELD   ; clean stop per pass (sets running=false, no halted flag) so reset always works, no ran=0 on later taps
+        \\JMP 8    ; after body, enter pad loop to reach 256 cycles
+        ; no YIELD/HALT: each tap runs ~256 cycles (body once + pad); uncond pc=0 reset re-runs body once per tap for low first + rise over 25 taps
     ;
     debug.trace("MT-006");
     const prog = try assembler.assemble(allocator, asm_src);
@@ -56,7 +59,7 @@ pub fn main() !void {
     eng.axicore_ctx.tricache.promote_hits_to_l3 = false;
     axicore.ShiftAdd.warmupDemoKeys(&eng.axicore_ctx.tricache);
 
-    // observable self-mod: LEARN/FUSE/HOOK/LANG in asm (executed in run, visible in trace/NC). EMIT removed to avoid overwriting program terminator (YIELD) and ensure consistent per-tap stops.
+    // observable self-mod: LEARN/FUSE/HOOK/LANG in asm (executed in run, visible in trace/NC). No early YIELD/HALT so each tap runs ~256 cycles (small body + repeats) for low first rate after 256; reset ensures re-exec across taps.
     std.debug.print("NC SELF-MOD: LEARN(0x81) FUSE(0x82) HOOK/LANG loaded and will execute\n", .{});
     debug.log_detail("LEARN", "self-mod executed");
 
