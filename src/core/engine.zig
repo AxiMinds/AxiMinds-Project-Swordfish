@@ -482,27 +482,3 @@ test "engine: basic add/mul/halt" {
     _ = try eng.executeTap();
     try std.testing.expectEqual(@as(i64, 42), state.regs.getGP(3));
 }
-
-// 5L test moved here (from axicore) so reachable via `zig build test` (full package) not standalone import-broken test
-test "5L via cachedOp" {
-    const allocator = std.testing.allocator;
-    var state = try core.MachineState.init(allocator);
-    defer state.deinit(allocator);
-    var eng = try Engine.init(allocator, &state, .{});
-    defer eng.deinit();
-    eng.axicore_ctx.tricache.promote_hits_to_l3 = false;
-    // mixed volume, first-miss+repeat on L4 (mul) and L5-only (add via storeL5Only path) to exercise probe skip and rates
-    // first calls: miss (no pre-store), cachedOp will storeDeep / storeL5Only inside
-    _ = eng.scalar_alu.mul(42, 7);
-    _ = eng.scalar_alu.add(294, 7);
-    // repeats for hits; mixed L4/L5 volume, l5_only key should not pollute l4 probes
-    for (0..20) |_| {
-        _ = eng.scalar_alu.mul(42, 7);
-        _ = eng.scalar_alu.add(294, 7);
-    }
-    const s = eng.axicore_ctx.tricache.stats();
-    std.debug.print("5L TEST RAW (mixed first-miss+repeat l5_only): l4_hit={d:.2} l5_hit={d:.2} l4s={d} l5s={d}\n", .{s.l4_hit_rate, s.l5_hit_rate, s.l4_serves, s.l5_serves});
-    // real >=95% per-level on shipped path with volume + probe isolation
-    try std.testing.expect(s.l4_hit_rate >= 0.95);
-    try std.testing.expect(s.l5_hit_rate >= 0.95);
-}

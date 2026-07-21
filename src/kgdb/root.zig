@@ -38,8 +38,8 @@ pub const KGDB = struct {
             e.timestamp_ns = @as(i64, ts.sec) * 1_000_000_000 + ts.nsec;
         }
         // weight + actual SPZA fuzzy for priority (see spzaFuzzyScore)
-        const _f = self.spzaFuzzyScore(e);
-        _ = _f;
+        const fuzzy = self.spzaFuzzyScore(e);
+        e.weight = fuzzy; // actually use (was discarded _f); affects hot index priority
         try self.hot.addEdge(e);
         // TODO: also append_log if open
     }

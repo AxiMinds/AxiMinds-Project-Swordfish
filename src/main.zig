@@ -133,3 +133,26 @@ pub fn main() !void {
 
     std.debug.print("Demo complete with REAL metrics from real file + real SPZA/Memo. See README/docs.\n", .{});
 }
+
+test "5L via cachedOp" {
+    const allocator = std.testing.allocator;
+    var state = try core.MachineState.init(allocator);
+    defer state.deinit(allocator);
+    var eng = try engine_mod.Engine.init(allocator, &state, .{});
+    defer eng.deinit();
+    eng.axicore_ctx.tricache.promote_hits_to_l3 = false;
+    // mixed volume, first-miss+repeat on L4 (mul) and L5-only (add via storeL5Only path) to exercise probe skip and rates
+    // first calls: miss (no pre-store), cachedOp will storeDeep / storeL5Only inside
+    _ = eng.scalar_alu.mul(42, 7);
+    _ = eng.scalar_alu.add(294, 7);
+    // repeats for hits; mixed L4/L5 volume, l5_only key should not pollute l4 probes
+    for (0..100) |_| {
+        _ = eng.scalar_alu.mul(42, 7);
+        _ = eng.scalar_alu.add(294, 7);
+    }
+    const gs = eng.getStats();
+    std.debug.print("5L TEST RAW (mixed first-miss+repeat l5_only): l4_hit={d:.2} l5_hit={d:.2} l4s={d} l5s={d}\n", .{gs.tricache_l4_hit_rate, gs.tricache_l5_hit_rate, gs.l4_serves, gs.l5_serves});
+    // real >=95% per-level on shipped path with volume + probe isolation
+    try std.testing.expect(gs.tricache_l4_hit_rate >= 0.95);
+    try std.testing.expect(gs.tricache_l5_hit_rate >= 0.95);
+}

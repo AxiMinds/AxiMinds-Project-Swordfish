@@ -554,7 +554,7 @@ pub fn tricacheHitRates(s: struct {
         .l2_hit_rate = if (total > 0) @as(f32, @floatFromInt(s.l2_serves)) / @as(f32, @floatFromInt(total)) else 0,
         .l3_hit_rate = if (total > 0) @as(f32, @floatFromInt(s.l3_serves)) / @as(f32, @floatFromInt(total)) else 0,
         .l4_hit_rate = if (effective_miss > 0) @min(1.0, @as(f32, @floatFromInt(l4_num)) / @as(f32, @floatFromInt(effective_miss))) else 0,
-        .l5_hit_rate = if (effective_miss > s.l4_serves) @min(1.0, @as(f32, @floatFromInt(l5_num)) / @as(f32, @floatFromInt(effective_miss - s.l4_serves))) else 0,
+        .l5_hit_rate = if (effective_miss > 0) @min(1.0, @as(f32, @floatFromInt(l5_num)) / @as(f32, @floatFromInt(effective_miss))) else 0,
         .overall_hit_rate = if (total > 0) @min(1.0, @as(f32, @floatFromInt(sum_serves)) / @as(f32, @floatFromInt(total))) else 0,
         .l1_evictions = 0,
         .l2_evictions = 0,
@@ -760,7 +760,8 @@ pub const ShiftAdd = struct {
         var shift: u6 = 0;
         while (remaining != 0) {
             if (remaining & 1 != 0) {
-                result = @bitCast(asmShlAdd(@bitCast(result), shift, @bitCast(abs_a)));
+                const term: u64 = abs_a << shift;
+                result = @bitCast(asmShlAdd(@bitCast(result), 0, @bitCast(term)));
             }
             remaining >>= 1;
             if (shift == 63) break;
