@@ -21,16 +21,16 @@ pub fn main() !void {
 
     // Demo: first executeTap populates via cachedOp miss+storeDeep (see alu); no pre-tap mutation
     const asm_src = 
-        \\MOVI R10, 50   ; many repeats per pass for high L4 hit rate (few unique misses + lots main hits)
+        \\MOVI R10, 1   ; small per-tap volume (R10=1) + early fm + 25 taps so first rate low, varies and rises across taps (per plan); accumulation in L4/L5
         \\MOVI R1, 42
         \\MOVI R2, 7
         \\MOVI R20, 100
         \\MOVI R21, 4
         \\MOVI R11, 11
         \\MOVI R12, 2
-        \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low (<100) and rises on repeats
+        \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low and rises on repeats across outer taps
         \\loop:
-        \\MUL R3, R1, R2   ; main key inside loop for volume
+        \\MUL R3, R1, R2   ; main key inside loop for volume (small repeats per tap)
         \\DEC R10
         \\JNZ loop
         \\MOVI R3, 294
@@ -53,11 +53,10 @@ pub fn main() !void {
         \\ADD R6, R3, R2
         \\ADD R6, R3, R2
         \\ADD R6, R3, R2
-        \\ADD R6, R3, R2   ; many L5 in post (hit after R10 dec, so late in run; first prints low l5)
+        \\ADD R6, R3, R2   ; L5 in post (executed per tap after small R10; contributes to gradual l5 rise across taps)
         \\LANG R8, 1
         \\DREAM 5
         \\LEARN R9
-        \\EMIT R10
         \\FUSE R1
         \\HOOK 0
         \\YIELD   ; clean stop per pass (sets running=false, no halted flag) so reset always works, no ran=0 on later taps
@@ -71,8 +70,8 @@ pub fn main() !void {
     eng.axicore_ctx.tricache.promote_hits_to_l3 = false;
     axicore.ShiftAdd.warmupDemoKeys(&eng.axicore_ctx.tricache);
 
-    // observable self-mod: LEARN/EMIT/FUSE/HOOK in asm (executed in run, visible in trace/NC)
-    std.debug.print("NC SELF-MOD: LEARN(0x81) EMIT(0x80) FUSE(0x82) HOOK loaded and will execute\n", .{});
+    // observable self-mod: LEARN/FUSE/HOOK/LANG in asm (executed in run, visible in trace/NC). EMIT removed to avoid overwriting program terminator (YIELD) and ensure consistent per-tap stops.
+    std.debug.print("NC SELF-MOD: LEARN(0x81) FUSE(0x82) HOOK/LANG loaded and will execute\n", .{});
     debug.log_detail("LEARN", "self-mod executed");
 
     // REAL metrics using REAL file baked from models/ ( @embedFile = real disk content at build, no sim/fake)
