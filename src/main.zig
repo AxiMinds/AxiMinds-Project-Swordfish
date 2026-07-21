@@ -43,19 +43,7 @@ pub fn main() !void {
         \\ADD R6, R3, R2
         \\ADD R6, R3, R2
         \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2
-        \\ADD R6, R3, R2   ; more L5 post per tap (boost serves while small R10 keeps first low + rise across taps)
+        \\ADD R6, R3, R2   ; trimmed L5 posts (still exercises L5 rise; more relative L4 volume for higher l4 rate visibility while keeping per-tap small for low first + cross-tap rise)
         \\LANG R8, 1
         \\DREAM 5
         \\LEARN R9
