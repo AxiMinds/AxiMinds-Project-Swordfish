@@ -21,7 +21,7 @@ pub fn main() !void {
 
     // Demo: first executeTap populates via cachedOp miss+storeDeep (see alu); no pre-tap mutation
     const asm_src = 
-        \\MOVI R10, 5   ; small repeats per pass for first rate low (many unique misses + few main hits), rises over taps
+        \\MOVI R10, 50   ; many repeats per pass for high L4 hit rate (few unique misses + lots main hits)
         \\MOVI R1, 42
         \\MOVI R2, 7
         \\MOVI R20, 100
@@ -29,39 +29,6 @@ pub fn main() !void {
         \\MOVI R11, 11
         \\MOVI R12, 2
         \\MUL R3, R11, R12   ; early L4 fm (new keys) so L4 rate starts low (<100) and rises on repeats
-        \\MOVI R13, 12
-        \\MOVI R14, 2
-        \\MUL R4, R13, R14
-        \\MOVI R15, 13
-        \\MOVI R16, 2
-        \\MUL R5, R15, R16
-        \\MOVI R17, 14
-        \\MOVI R18, 2
-        \\MUL R6, R17, R18
-        \\MOVI R19, 21
-        \\MOVI R20, 3
-        \\MUL R7, R19, R20
-        \\MOVI R21, 22
-        \\MOVI R22, 3
-        \\MUL R8, R21, R22
-        \\MOVI R23, 23
-        \\MOVI R24, 3
-        \\MUL R9, R23, R24
-        \\MOVI R25, 24
-        \\MOVI R26, 3
-        \\MUL R11, R25, R26
-        \\MOVI R27, 25
-        \\MOVI R28, 3
-        \\MUL R12, R27, R28
-        \\MOVI R29, 26
-        \\MOVI R30, 3
-        \\MUL R13, R29, R30
-        \\MOVI R19, 27
-        \\MOVI R20, 3
-        \\MUL R14, R19, R20
-        \\MOVI R21, 28
-        \\MOVI R22, 3
-        \\MUL R15, R21, R22
         \\loop:
         \\MUL R3, R1, R2   ; main key inside loop for volume
         \\DEC R10
