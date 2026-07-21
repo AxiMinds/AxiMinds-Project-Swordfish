@@ -145,6 +145,10 @@ pub fn main() !void {
     defer allocator.free(prog);
     try eng.loadProgram(prog);
 
+    // call warmup and promote=false so L4/L5 populated before taps (first can hit after initial fm); rates rise as volume builds
+    eng.axicore_ctx.tricache.promote_hits_to_l3 = false;
+    axicore.ShiftAdd.warmupDemoKeys(&eng.axicore_ctx.tricache);
+
     // observable self-mod: LEARN/EMIT/FUSE/HOOK in asm (executed in run, visible in trace/NC)
     std.debug.print("NC SELF-MOD: LEARN(0x81) EMIT(0x80) FUSE(0x82) HOOK loaded and will execute\n", .{});
     debug.log_detail("LEARN", "self-mod executed");
