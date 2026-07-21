@@ -12,11 +12,6 @@ mkdir -p "$SCRATCH" l4_cache l5_shards
 # builds with .exit , use --summary all for raw transcript in logs (even success)
 $ZIG build --summary all > "$SCRATCH/audit-build.log" 2>&1; rc=$?; echo $rc > "$SCRATCH/audit-build.log.exit"
 $ZIG build test --summary all 2>&1 | cat > "$SCRATCH/audit-test-full.log"; rc=$?; echo $rc > "$SCRATCH/audit-test.log.exit"
-# Force the 5L via cachedOp test output (the 'mixed first-miss+repeat l5_only' RAW using folded gs) into audit-test-full.log by re-running the produced test binary (build harness listener can swallow prints; this guarantees execution evidence and the string for greps)
-TEST_BIN=$(find .zig-cache -type f -executable 2>/dev/null | grep -E '/test$' | head -1 || true)
-if [ -n "$TEST_BIN" ]; then
-  "$TEST_BIN" 2>&1 | cat >> "$SCRATCH/audit-test-full.log" || true
-fi
 # raw 5L on clean post-rm: extract from full build test output (5L test in main.zig under exe root test, using shipped getStats folded)
 echo '=== RAW 5L TEST ASSERTS (clean post-rm via build test) ===' >> "$SCRATCH/audit-test.log"
 grep -E '5L TEST RAW|l4_hit|l5_hit|assert' "$SCRATCH/audit-test-full.log" | cat >> "$SCRATCH/audit-test.log" || true

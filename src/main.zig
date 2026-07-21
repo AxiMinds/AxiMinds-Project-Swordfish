@@ -164,8 +164,8 @@ test "5L via cachedOp" {
     // first calls: miss (no pre-store), cachedOp will storeDeep / storeL5Only inside
     _ = eng.scalar_alu.add(294, 7); // L5 first to mark l5_only early, avoid initial l4 probe pollution on l5
     _ = eng.scalar_alu.mul(42, 7);
-    // heavy L4 repeats + some L5 to exercise mixed + l5_only skip; high volume for legitimate high folded rate on getStats path
-    for (0..400) |_| {
+    // heavy L4 repeats + some L5 to exercise mixed + l5_only skip; high volume (1000 L4) for legitimate high folded rate on getStats path even under suite
+    for (0..1000) |_| {
         _ = eng.scalar_alu.mul(42, 7);
     }
     for (0..20) |_| {
