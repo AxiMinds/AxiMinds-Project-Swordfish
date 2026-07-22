@@ -1,0 +1,48 @@
+=== axiNC live interaction (FFN + fixture forward) 2026-07-22T04:58:06-06:00 ===
+=== axiNC live demo (FFN + GGUF forward) ===
+info(axinc_types): [axiNC] memory initialized | size=16MB
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] dream canvas initialized | 256x256 (0MB)
+info(axinc_types): [axiNC] machine state initialized | mem=16MB canvas=0MB
+info(axinc_axicore): [axicore] TricacheL3 initialized | capacity=65536 (1536KB)
+info(axinc_axicore): [axicore] context ready | hw=scalar
+info(axinc_exec): [axiNC] engine init | max_tap=1024
+info(axinc_bridge): [bridge] axinc_init success
+info(axinc_types): [axiNC] program loaded | addr=0x00001000 size=28B
+info(axinc_exec): [axiNC] loadProgram 7 instrs
+cycles_ran=7 axiasm_ops=7
+stats={"cycles":7,"instructions":7,"hit_rate":1.0000,"l4_hit":0.6667,"l5_hit":0.5000,"energy_saved":3,"vram_mb":38,"dream":false,"custom_ops":0,"fused":0,"models":1}
+--- forward ---
+[axiNC GGUF forward path=src/models/fixtures/tiny.gguf]
+backend=inproc_f32 tensor=token_embd.weight n_vocab=8 n_embd=4 n_floats=32
+prompt_bytes=4 generated_tokens=4 top_token=7 top_logit=2645.000000
+top5_logits=7:2645.0000,6:2293.0000,5:1941.0000,4:1589.0000,3:1237.0000
+generated=''''
+status=forward_ok
+=== second interaction run ===
+=== axiNC live demo (FFN + GGUF forward) ===
+info(axinc_types): [axiNC] memory initialized | size=16MB
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] dream canvas initialized | 256x256 (0MB)
+info(axinc_types): [axiNC] machine state initialized | mem=16MB canvas=0MB
+info(axinc_axicore): [axicore] TricacheL3 initialized | capacity=65536 (1536KB)
+info(axinc_axicore): [axicore] context ready | hw=scalar
+info(axinc_exec): [axiNC] engine init | max_tap=1024
+info(axinc_bridge): [bridge] axinc_init success
+info(axinc_types): [axiNC] program loaded | addr=0x00001000 size=28B
+info(axinc_exec): [axiNC] loadProgram 7 instrs
+cycles_ran=7 axiasm_ops=7
+stats={"cycles":7,"instructions":7,"hit_rate":1.0000,"l4_hit":0.6667,"l5_hit":0.5000,"energy_saved":3,"vram_mb":38,"dream":false,"custom_ops":0,"fused":0,"models":1}
+--- forward ---
+[axiNC GGUF forward path=src/models/fixtures/tiny.gguf]
+backend=inproc_f32 tensor=token_embd.weight n_vocab=8 n_embd=4 n_floats=32
+prompt_bytes=4 generated_tokens=4 top_token=7 top_logit=2645.000000
+top5_logits=7:2645.0000,6:2293.0000,5:1941.0000,4:1589.0000,3:1237.0000
+generated=''''
+status=forward_ok

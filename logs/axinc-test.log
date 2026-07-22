@@ -1,0 +1,43 @@
+test
++- run test w
+5L TEST RAW (mixed first-miss+repeat l5_only): l4_hit=1.00 l5_hit=1.00 l4s=1000 l5s=20
+=== axiNC + Ollama agent loop ===
+endpoint=http://127.0.0.1:11534 model=qwen3.5:0.8B max_ticks=1
+MOCK LLM mode (offline MVP path).
+
+--- LOOP_TICK 1/1 ---
+LLM (mock) response (183 bytes):
+Plan: load axiASM then secondary GGUF model (real weight probe).
+```axiasm
+MOVI R1, 10
+MOVI R2, 3
+MUL R3, R1, R2
+HALT
+```
+```model
+gguf src/models/fixtures/tiny.gguf
+hello-weights
+```
+Model block: kind=gguf name=src/models/fixtures/tiny.gguf
+Secondary model output (497 bytes):
+[axiNC GGUF forward path=src/models/fixtures/tiny.gguf]
+backend=inproc_f32 tensor=token_embd.weight n_vocab=8 n_embd=4 n_floats=32
+prompt_bytes=13 generated_tokens=8 top_token=7 top_logit=2669.000200
+top5_logits=7:2669.0002,6:2313.8000,5:1958.6001,4:1603.4000,3:1248.2001
+generated=''''''''
+status=forward_ok
+[slot=0 architecture=test tensors=1 primary_tensor=token_embd.weight]
+weight_probe_count=32 weight_probe_sum_f32=512.000000 weight_fingerprint=0xc6f8eb8dbc84aed5
+forward_backend=inproc_f32
+Found axiASM (42 bytes). Assembling...
+NC ran: cycles=4 R3=30 hit_rate=1.00 dream=false
+
+=== agent loop finished ===
+failed command: ./.zig-cache/o/c3911e67798c116165d1d6e2650c7371/test --cache-dir=./.zig-cache --seed=0xfbb619ad --listen=-
+
+Build Summary: 4/4 steps succeeded; 45/45 tests passed
+test success
++- run test 45 pass (45 total) 797ms MaxRSS:49M
+   +- compile test Debug native cached 8ms MaxRSS:39M
+      +- options cached
+

@@ -1,6 +1,6 @@
 # AxiMinds Neural Computer — axicore (Project Swordfish)
 
-**Version [0.1.0](CHANGELOG.md)** · Zig 0.16.0 · ZLS 0.16.0
+**Version [0.2.0](CHANGELOG.md)** · Zig 0.16.0 · ZLS 0.16.0
 
 The FULL axicore stack available to the AI's neural computer.
 Every optimization the host system gets, the AI's computer gets too.
@@ -95,7 +95,12 @@ zig build
 zig build test
 zig build bench
 zig build run -- agent --mock --ticks 2
+zig build run -- ffn-consumer --cycles 128
+zig build run -- gguf-forward --path src/models/fixtures/tiny.gguf --prompt "hello"
+zig build run -- live-demo --path src/models/fixtures/tiny.gguf --prompt "ping"
 ```
+
+Live evidence & plain-language results: **[logs/AXINC-TEST-RESULTS.md](logs/AXINC-TEST-RESULTS.md)**
 
 ## Vision
 LLMs inhabit a neural computer (axiNC) inside VRAM. They write, debug, and execute code using the Neural ISA (including custom/fused opcodes and AST-lowered LANG). They dream in layers (time dilation via DREAM/WAKE + canvas), accumulate persistent KGDB memories (AXION-32D, hot index, multi-hop traversal, L4/L5 integration) using advanced SPZA (8D angular + sign XNOR/POP with adaptive phases) + decay/priority. Real 5-level caching (L4 disk LFU .axl4 + L5 JSON-LD shards) + pre-FFN continual thinking hooks + memoized mul for host savings.
@@ -190,15 +195,15 @@ Proprietary — AxiMinds / Broadband Evolution LLC. (Per conversation history)
 
 ## Status
 
-**v0.1.0 MVP** tagged (see [CHANGELOG.md](CHANGELOG.md)):
+**v0.2.0** (see [CHANGELOG.md](CHANGELOG.md) and [logs/AXINC-TEST-RESULTS.md](logs/AXINC-TEST-RESULTS.md)):
 
 - 5-level Tricache (L1–L3 VRAM + L4 disk LFU + L5 JSON-LD + KGDB) with ≥95% hits under verify
-- KGDB decay/priority + SPZA fuzzy weight; L5-wired; demo-exercised
-- Pre-FFN hooks + memoizedMul; real metrics (wall clock, IPS, energy, per-level serves)
-- GGUF parser + **honest weight-probe secondary** (not full transformer decode)
+- **Live FFN consumer** (`ffn-consumer`) — real C ABI `axinc_ffn_tap`, dual-run nonzero cycles
+- **Full GGUF forward** — in-proc F32 embd→logits; Q4 via zllama/`llama-completion` (`status=forward_ok`)
 - Agent loop (mock offline + optional live Ollama :11534)
-- C ABI `libaxinc` with `model_register` / `model_infer` success-tested
-- Builds/tests/bench clean on Zig 0.16
+- C ABI `libaxinc` with `model_register` / `model_infer` forward-path tests
+- llama.cpp live demo on **Qwen3.5-0.8B Q4_K_M** (NAS); optional review URL `http://127.0.0.1:18081`
+- Builds/tests clean on Zig 0.16 (**45** unit tests)
 
 ## Next (from reviews + current)
 - Full production KGDB decay e^(-λt) + priority + self-org + fuzzy SPZA hops (core substrate + hot index + traversal present; L5 integration live)

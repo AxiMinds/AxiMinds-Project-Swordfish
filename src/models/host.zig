@@ -1,8 +1,8 @@
-// Multi-model host for axiNC MVP.
-// Secondary models: Ollama tags (live chat) or GGUF files (real weight probe via zllama parser).
+// Multi-model host for axiNC.
+// Secondary models: Ollama tags (live chat) or GGUF files (full forward: in-proc F32 or zllama/llama-cli).
 //
 // SOURCES:
-//   - aximinds-zllama/src/gguf/parser.zig (GGUF load + tensor bytes)
+//   - aximinds-zllama/src/gguf/parser.zig + transformer.forward (via zllama binary / in-proc embd path)
 //   - AxiMinds-Claude-Remote ollama orchestrator (chat)
 //   - AxiMinds-Discovery multi-model roles
 
@@ -10,6 +10,7 @@ const std = @import("std");
 const ollama = @import("../bridge/ollama_client.zig");
 const gguf_parser = @import("../gguf/parser.zig");
 const gguf_fmt = @import("../gguf/format.zig");
+const forward = @import("forward.zig");
 
 pub const ModelKind = enum { ollama, gguf };
 
@@ -105,8 +106,8 @@ pub const ModelHost = struct {
     }
 
     /// Infer on slot.
-    /// - Ollama: real /api/chat (or AXINC_MOCK_OLLAMA_REPLY env inject for tests)
-    /// - GGUF: real weight probe + prompt-conditioned mix (not full transformer)
+    /// - Ollama: real /api/chat (or test_ollama_reply inject)
+    /// - GGUF: full forward (in-process F32 embd→logits, or zllama/llama-cli transformer)
     pub fn infer(self: *ModelHost, allocator: std.mem.Allocator, io: std.Io, slot_id: usize, prompt: []const u8) ![]u8 {
         if (slot_id >= self.n) return error.InvalidSlot;
         const slot = self.slots[slot_id] orelse return error.InvalidSlot;
@@ -126,31 +127,24 @@ pub const ModelHost = struct {
                 return r.text;
             },
             .gguf => {
-                // Real path: use precomputed weight fingerprint + sum, mix with prompt hash.
-                // This is a shipped MVP "weight-driven" secondary path (not a full LLM forward).
-                const ph = hashPrompt(prompt);
-                const mix = slot.weight_fingerprint ^ ph ^ (@as(u64, @intCast(prompt.len)) *% 0x9E3779B97F4A7C15);
-                const score = slot.weight_probe_sum_f32 + @as(f64, @floatFromInt(prompt.len)) * 0.001;
+                // Full forward path (not probe-only). Append probe diagnostics for vet.
+                const fr = try forward.forwardAuto(allocator, io, slot.name, prompt, 8);
+                defer fr.deinit(allocator);
                 return try std.fmt.allocPrint(allocator,
-                    \\[axiNC GGUF infer slot={d} path={s}]
-                    \\architecture={s} tensors={d} primary_tensor={s}
-                    \\weight_probe_count={d} weight_probe_sum_f32={d:.6}
-                    \\weight_fingerprint=0x{x:0>16} prompt_hash=0x{x:0>16} mix=0x{x:0>16}
-                    \\prompt_bytes={d} score={d:.6}
-                    \\status=weight_probe_ok
+                    \\{s}
+                    \\[slot={d} architecture={s} tensors={d} primary_tensor={s}]
+                    \\weight_probe_count={d} weight_probe_sum_f32={d:.6} weight_fingerprint=0x{x:0>16}
+                    \\forward_backend={s}
                 , .{
+                    fr.text,
                     slot_id,
-                    slot.name,
                     if (slot.architecture.len > 0) slot.architecture else "unknown",
                     slot.tensor_count,
                     if (slot.primary_tensor.len > 0) slot.primary_tensor else "(none)",
                     slot.weight_probe_count,
                     slot.weight_probe_sum_f32,
                     slot.weight_fingerprint,
-                    ph,
-                    mix,
-                    prompt.len,
-                    score,
+                    fr.backend,
                 });
             },
         }
@@ -226,15 +220,6 @@ fn probePrimaryTensor(allocator: std.mem.Allocator, file: *const gguf_parser.GGU
     };
 }
 
-fn hashPrompt(prompt: []const u8) u64 {
-    var h: u64 = 0xcbf29ce484222325;
-    for (prompt) |b| {
-        h ^= b;
-        h *%= 0x100000001b3;
-    }
-    return h;
-}
-
 test "model host ollama register slot" {
     const a = std.testing.allocator;
     var host = ModelHost.init(a);
@@ -244,7 +229,7 @@ test "model host ollama register slot" {
     try std.testing.expectEqual(@as(usize, 1), host.count());
 }
 
-test "model host GGUF weight probe infer (fixture)" {
+test "model host GGUF weight probe at register (fixture)" {
     const a = std.testing.allocator;
     var host = ModelHost.init(a);
     defer host.deinit();
@@ -255,14 +240,27 @@ test "model host GGUF weight probe infer (fixture)" {
     try std.testing.expect(host.slots[id].?.weight_probe_count > 0);
     // Fixture floats: 0.5 + 1.5 + ... + 31.5 = 512.0
     try std.testing.expect(@abs(host.slots[id].?.weight_probe_sum_f32 - 512.0) < 0.01);
+}
+
+test "model host GGUF full forward infer (fixture)" {
+    const a = std.testing.allocator;
+    var host = ModelHost.init(a);
+    defer host.deinit();
+
+    const path = "src/models/fixtures/tiny.gguf";
+    const id = try host.register(.gguf, path);
 
     var threaded: std.Io.Threaded = .init(a, .{});
     defer threaded.deinit();
     const out = try host.infer(a, threaded.io(), id, "hello");
     defer a.free(out);
-    try std.testing.expect(std.mem.indexOf(u8, out, "status=weight_probe_ok") != null);
+    // Real forward path — not probe-only
+    try std.testing.expect(std.mem.indexOf(u8, out, "status=forward_ok") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "generated=") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "top_logit=") != null or std.mem.indexOf(u8, out, "generated_tokens=") != null);
     try std.testing.expect(std.mem.indexOf(u8, out, "weight_probe_sum_f32=512") != null);
     try std.testing.expect(std.mem.indexOf(u8, out, "token_embd.weight") != null);
+    try std.testing.expect(std.mem.indexOf(u8, out, "forward_backend=inproc_f32") != null);
 }
 
 test "model host ollama infer via inject boundary" {

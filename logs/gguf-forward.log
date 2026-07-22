@@ -1,0 +1,11 @@
+=== GGUF forward fixture 2026-07-22T04:57:41-06:00 ===
+=== axiNC GGUF full forward ===
+path=src/models/fixtures/tiny.gguf
+prompt=hello axiNC
+backend=inproc_f32
+[axiNC GGUF forward path=src/models/fixtures/tiny.gguf]
+backend=inproc_f32 tensor=token_embd.weight n_vocab=8 n_embd=4 n_floats=32
+prompt_bytes=11 generated_tokens=6 top_token=7 top_logit=2225.000000
+top5_logits=7:2225.0000,6:1929.0000,5:1633.0000,4:1337.0000,3:1041.0000
+generated=''''''
+status=forward_ok

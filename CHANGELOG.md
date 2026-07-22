@@ -5,6 +5,27 @@ All notable changes to **AxiMinds Project Swordfish** (axicore / axiNC) are docu
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).  
 Versioning: [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
 
+## [0.2.0] — 2026-07-22
+
+Live FFN consumer + full GGUF forward (beyond weight probe) + llama.cpp Qwen3.5-0.8B Q4_K_M verification.
+
+### Added
+
+- **`src/models/forward.zig`**: in-process F32 embd→logits→tokens (`status=forward_ok`); external full transformer via zllama / `llama-completion`.
+- **`src/bridge/ffn_consumer.zig`**: live C ABI FFN host path; dual-run consistency tests.
+- CLI modes: `ffn-consumer`, `gguf-forward`, `live-demo` (`src/main.zig`).
+- Project **`logs/`** operational transcripts + plain-language `logs/AXINC-TEST-RESULTS.md`.
+- `scripts/verify_live_axinc.sh` re-verify harness.
+
+### Changed
+
+- `ModelHost.infer(.gguf)` and `axinc_model_infer` return **forward** results (not probe-only).
+- Weight probe retained as register-time diagnostics only.
+
+### Verified
+
+- 45/45 unit tests; dual FFN runs (cycles=7); Qwen3.5-0.8B Q4_K_M via llama.cpp; optional `http://127.0.0.1:18081`.
+
 ## [0.1.0] — 2026-07-22
 
 First tagged **MVP** release: offline-complete neural computer with agent loop, C ABI, and honest secondary-model paths.
@@ -45,4 +66,5 @@ zig build run -- agent --mock --ticks 2
 
 Pre-tag work on `master` includes Phase-1 core (ISA, engine, ALU, KGDB substrate, metrics, demo-ocean, verify scripts) and repeated skeptic hardening of 5L hit-rate proofs. See git history before `v0.1.0`.
 
+[0.2.0]: https://github.com/AxiMinds/AxiMinds-Project-Swordfish/releases/tag/v0.2.0
 [0.1.0]: https://github.com/AxiMinds/AxiMinds-Project-Swordfish/releases/tag/v0.1.0

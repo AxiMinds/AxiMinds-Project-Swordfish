@@ -1,0 +1,34 @@
+=== FFN consumer run 1 2026-07-22T04:57:41-06:00 ===
+info(axinc_types): [axiNC] memory initialized | size=16MB
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] dream canvas initialized | 256x256 (0MB)
+info(axinc_types): [axiNC] machine state initialized | mem=16MB canvas=0MB
+info(axinc_axicore): [axicore] TricacheL3 initialized | capacity=65536 (1536KB)
+info(axinc_axicore): [axicore] context ready | hw=scalar
+info(axinc_exec): [axiNC] engine init | max_tap=1024
+info(axinc_bridge): [bridge] axinc_init success
+info(axinc_types): [axiNC] program loaded | addr=0x00001000 size=28B
+info(axinc_exec): [axiNC] loadProgram 7 instrs
+=== axiNC live FFN consumer ===
+cycles_ran=7 axiasm_ops=7
+stats={"cycles":7,"instructions":7,"hit_rate":1.0000,"l4_hit":0.6667,"l5_hit":0.5000,"energy_saved":3,"vram_mb":38,"dream":false,"custom_ops":0,"fused":0,"models":0}
+=== FFN consumer run 2 2026-07-22T04:57:41-06:00 ===
+info(axinc_types): [axiNC] memory initialized | size=16MB
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] memo table initialized | entries=65536
+info(axinc_types): [axiNC] dream canvas initialized | 256x256 (0MB)
+info(axinc_types): [axiNC] machine state initialized | mem=16MB canvas=0MB
+info(axinc_axicore): [axicore] TricacheL3 initialized | capacity=65536 (1536KB)
+info(axinc_axicore): [axicore] context ready | hw=scalar
+info(axinc_exec): [axiNC] engine init | max_tap=1024
+info(axinc_bridge): [bridge] axinc_init success
+info(axinc_types): [axiNC] program loaded | addr=0x00001000 size=28B
+info(axinc_exec): [axiNC] loadProgram 7 instrs
+=== axiNC live FFN consumer ===
+cycles_ran=7 axiasm_ops=7
+stats={"cycles":7,"instructions":7,"hit_rate":1.0000,"l4_hit":0.6667,"l5_hit":0.5000,"energy_saved":3,"vram_mb":38,"dream":false,"custom_ops":0,"fused":0,"models":0}

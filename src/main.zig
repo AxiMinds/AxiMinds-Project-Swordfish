@@ -4,7 +4,9 @@
 // Modes:
 //   zig build run                  — cache/metrics demo (default)
 //   zig build run -- agent         — continuous Ollama(Qwen)+axiNC loop
-//   zig build run -- agent --model qwen3.5:0.8b --ticks 12
+//   zig build run -- ffn-consumer  — live C ABI FFN tap consumer
+//   zig build run -- gguf-forward  — full GGUF forward on --path
+//   zig build run -- live-demo     — FFN consumer + GGUF forward interaction
 const std = @import("std");
 const core = @import("core/types.zig");
 const engine_mod = @import("core/engine.zig");
@@ -17,11 +19,15 @@ const ollama = @import("bridge/ollama_client.zig");
 // Pull bridge C-ABI tests into the consolidated test suite
 const bridge_lib = @import("bridge_lib.zig");
 const models = @import("models/host.zig");
+const forward = @import("models/forward.zig");
+const ffn_consumer = @import("bridge/ffn_consumer.zig");
 const log = std.log.scoped(.axinc_main);
 // Ensure agent tests are always linked (avoid DCE of test decls)
 comptime {
     _ = agent_loop.extractAxiAsm;
     _ = models.ModelHost;
+    _ = forward.forwardInProcessF32;
+    _ = ffn_consumer.runLive;
 }
 
 /// Zig 0.16 main signature: first parameter is `std.process.Init` (gpa + io + args).
@@ -34,15 +40,28 @@ pub fn main(init: std.process.Init) !void {
     _ = args.next(); // argv0
 
     var mode_agent = false;
+    var mode_ffn = false;
+    var mode_gguf_forward = false;
+    var mode_live_demo = false;
     var model: []const u8 = "qwen3.5:0.8B";
     var endpoint: []const u8 = "http://127.0.0.1:11534";
     var ticks: u32 = 8;
     var goal: ?[]const u8 = null;
     var mock_llm = false;
+    var gguf_path: []const u8 = "src/models/fixtures/tiny.gguf";
+    var prompt: []const u8 = "Hello from axiNC";
+    var cycles: u64 = 128;
+    var max_new: u32 = 16;
 
     while (args.next()) |a| {
         if (std.mem.eql(u8, a, "agent") or std.mem.eql(u8, a, "--agent")) {
             mode_agent = true;
+        } else if (std.mem.eql(u8, a, "ffn-consumer") or std.mem.eql(u8, a, "--ffn-consumer")) {
+            mode_ffn = true;
+        } else if (std.mem.eql(u8, a, "gguf-forward") or std.mem.eql(u8, a, "--gguf-forward")) {
+            mode_gguf_forward = true;
+        } else if (std.mem.eql(u8, a, "live-demo") or std.mem.eql(u8, a, "--live-demo")) {
+            mode_live_demo = true;
         } else if (std.mem.eql(u8, a, "--model")) {
             model = args.next() orelse model;
         } else if (std.mem.eql(u8, a, "--endpoint")) {
@@ -55,6 +74,16 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, a, "--mock")) {
             mock_llm = true;
             mode_agent = true;
+        } else if (std.mem.eql(u8, a, "--path")) {
+            gguf_path = args.next() orelse gguf_path;
+        } else if (std.mem.eql(u8, a, "--prompt")) {
+            prompt = args.next() orelse prompt;
+        } else if (std.mem.eql(u8, a, "--cycles")) {
+            const c = args.next() orelse "128";
+            cycles = std.fmt.parseInt(u64, c, 10) catch 128;
+        } else if (std.mem.eql(u8, a, "--max-tokens") or std.mem.eql(u8, a, "-n")) {
+            const n = args.next() orelse "16";
+            max_new = std.fmt.parseInt(u32, n, 10) catch 16;
         } else if (std.mem.eql(u8, a, "--help") or std.mem.eql(u8, a, "-h")) {
             std.debug.print(
                 \\axinc — AxiMinds Neural Computer
@@ -65,10 +94,53 @@ pub fn main(init: std.process.Init) !void {
                 \\    --ticks N        default 8
                 \\    --goal "text"    standing instructions override
                 \\    --mock           offline agent path (no Ollama required)
+                \\  ffn-consumer       live C ABI FFN tap (cycles + stats JSON)
+                \\    --cycles N       tap budget (default 128)
+                \\  gguf-forward       full GGUF forward (in-proc F32 or zllama/llama-cli)
+                \\    --path FILE.gguf model path
+                \\    --prompt TEXT    prompt
+                \\    --max-tokens N   new tokens (default 16)
+                \\  live-demo          FFN consumer + GGUF forward interaction
+                \\    --path / --prompt / --cycles / --max-tokens
                 \\
             , .{});
             return;
         }
+    }
+
+    if (mode_ffn) {
+        var r = try ffn_consumer.runLive(allocator, cycles, ffn_consumer.DEFAULT_AXIASM);
+        defer {
+            r.deinit(allocator);
+            ffn_consumer.shutdownSession();
+        }
+        std.debug.print("=== axiNC live FFN consumer ===\n", .{});
+        std.debug.print("cycles_ran={d} axiasm_ops={d}\n", .{ r.cycles_ran, r.axiasm_ops });
+        std.debug.print("stats={s}\n", .{r.stats_json});
+        if (r.cycles_ran == 0) return error.ZeroCycles;
+        return;
+    }
+
+    if (mode_gguf_forward) {
+        std.debug.print("=== axiNC GGUF full forward ===\npath={s}\nprompt={s}\n", .{ gguf_path, prompt });
+        const r = try forward.forwardAuto(allocator, io, gguf_path, prompt, max_new);
+        defer r.deinit(allocator);
+        std.debug.print("backend={s}\n{s}\n", .{ r.backend, r.text });
+        if (!r.is_forward) return error.NotForward;
+        return;
+    }
+
+    if (mode_live_demo) {
+        std.debug.print("=== axiNC live demo (FFN + GGUF forward) ===\n", .{});
+        var r = try ffn_consumer.runLiveWithGgufForward(allocator, io, cycles, gguf_path, prompt, max_new);
+        defer {
+            r.deinit(allocator);
+            ffn_consumer.shutdownSession();
+        }
+        std.debug.print("cycles_ran={d} axiasm_ops={d}\nstats={s}\n", .{ r.cycles_ran, r.axiasm_ops, r.stats_json });
+        if (r.forward_text) |ft| std.debug.print("--- forward ---\n{s}\n", .{ft});
+        if (r.cycles_ran == 0) return error.ZeroCycles;
+        return;
     }
 
     if (mode_agent) {

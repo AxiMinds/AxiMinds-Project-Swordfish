@@ -1,0 +1,11 @@
+=== model discovery 2026-07-22T04:53:54-06:00 ===
+Q4_K_M: /NAS1/homes/jdare/AI/AxiMinds-Inference/docker/models/gguf/unsloth_Qwen3.5-0.8B-GGUF/Qwen3.5-0.8B-Q4_K_M.gguf
+-rw-r--r-- 1 jdare jdare 508M Jun  4 09:55 /NAS1/homes/jdare/AI/AxiMinds-Inference/docker/models/gguf/unsloth_Qwen3.5-0.8B-GGUF/Qwen3.5-0.8B-Q4_K_M.gguf
+Q4_0 fallback: /NAS1/homes/jdare/AI/AxiMinds-Inference/llama.cpp/models/Qwen3.5-0.8B-Q4_0.gguf
+-rw-rw-r-- 1 jdare jdare 484M Apr 13 04:35 /NAS1/homes/jdare/AI/AxiMinds-Inference/llama.cpp/models/Qwen3.5-0.8B-Q4_0.gguf
+llama-cli: /home/linuxbrew/.linuxbrew/bin/llama-cli
+version: 8070 (cc45f2ada)
+built with GNU 12.3.0 for Linux x86_64
+version: 8070 (cc45f2ada)
+built with GNU 12.3.0 for Linux x86_64
+zllama transformer: /NAS1/homes/jdare/AI/development/AxiMinds-zllama/src/model/transformer.zig (3164 lines)
