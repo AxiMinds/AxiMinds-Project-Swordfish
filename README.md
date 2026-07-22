@@ -1,5 +1,7 @@
 # AxiMinds Neural Computer — axicore (Project Swordfish)
 
+**Version [0.1.0](CHANGELOG.md)** · Zig 0.16.0 · ZLS 0.16.0
+
 The FULL axicore stack available to the AI's neural computer.
 Every optimization the host system gets, the AI's computer gets too.
 
@@ -61,49 +63,39 @@ axicore consolidation architecture:
 
 ## Project Structure
 ```
+├── VERSION / CHANGELOG.md
+├── build.zig                    # axinc exe + libaxinc.a/.so + test + bench
 ├── src/
-│   ├── core/
-│   │   ├── types.zig
-│   │   ├── axicore.zig          # 5-level Tricache (L4 syscall disk + L5 JSON-LD + KGDB), INT1, ShiftAdd, MEP, SMURFS
-│   │   ├── alu.zig              # cachedOp pipeline + memoizedMul hook integration
-│   │   └── engine.zig           # executeTap, self-mod (EMIT/LEARN/FUSE/LANG), hook wiring
-│   ├── isa/
-│   │   └── opcodes.zig          # 80+ opcodes, Builder, CustomOpcodeRegistry
-│   ├── kgdb/
-│   │   ├── root.zig             # KGDB facade (addEdge, traverse)
-│   │   ├── address.zig          # AXION-32D 32-byte addressing
-│   │   ├── record.zig
-│   │   ├── append_log.zig
-│   │   ├── index_hot.zig        # RAM adjacency index (from Substrate port)
-│   │   └── traversal.zig        # multi-hop BFS/DFS
-│   ├── gguf/                    # real GGUF parser + SVC4 (from aximinds-zllama port)
-│   │   ├── format.zig
-│   │   └── parser.zig
-│   ├── hooks/
-│   │   └── pre_ffn.zig          # continualPreFFN + memoizedMul (SGLang-Plugin port concepts)
-│   ├── asm/                     # axiASM assembler + lowerer (std.zig.Ast)
-│   ├── bridge/
-│   │   └── llama_bridge.zig
-│   ├── svc4.zig
-│   ├── dev/
-│   │   └── debug.zig            # pluggable dev-debug (strip only at final prod)
-│   ├── gpu/
-│   ├── dream/
+│   ├── main.zig                 # demo metrics + `agent` subcommand
+│   ├── bridge_lib.zig           # C ABI root → libaxinc
+│   ├── core/                    # types, axicore (5L), alu, engine
+│   ├── isa/opcodes.zig
+│   ├── asm/                     # axiASM assembler + Ast lowerer
+│   ├── kgdb/                    # AXION-32D + hot index + traversal
+│   ├── gguf/ + svc4.zig         # GGUF parser + SVC4 helpers
+│   ├── models/host.zig          # secondary Ollama / GGUF weight probe
+│   ├── models/fixtures/tiny.gguf
+│   ├── agent/loop.zig           # LLM ↔ NC continuous loop
+│   ├── bridge/                  # ollama_client, llama_bridge
+│   ├── hooks/pre_ffn.zig
+│   ├── dev/debug.zig
 │   └── bench.zig
 ├── docs/
-│   └── ARCHITECTURE.md
-├── models/
-│   └── sample_model.txt
-├── build.zig
-└── README.md
+│   ├── ARCHITECTURE.md
+│   ├── axiASM.md
+│   ├── metrics.md
+│   └── SOURCES-GH.md            # AxiMinds org port provenance
+├── scripts/verify_mvp.sh
+└── demo-ocean.html
 ```
 
-Zig 0.16.0 | ZLS 0.16.0
-
 ## Build & Test
+```bash
 zig build
 zig build test
 zig build bench
+zig build run -- agent --mock --ticks 2
+```
 
 ## Vision
 LLMs inhabit a neural computer (axiNC) inside VRAM. They write, debug, and execute code using the Neural ISA (including custom/fused opcodes and AST-lowered LANG). They dream in layers (time dilation via DREAM/WAKE + canvas), accumulate persistent KGDB memories (AXION-32D, hot index, multi-hop traversal, L4/L5 integration) using advanced SPZA (8D angular + sign XNOR/POP with adaptive phases) + decay/priority. Real 5-level caching (L4 disk LFU .axl4 + L5 JSON-LD shards) + pre-FFN continual thinking hooks + memoized mul for host savings.
@@ -197,18 +189,16 @@ Proprietary — AxiMinds / Broadband Evolution LLC. (Per conversation history)
 - Single source: keep detailed in ARCHITECTURE.md / DEVELOPMENT_NOTES; keep this README compendious + matrix.
 
 ## Status
-MVP complete (Phase 1 Foundation + KGDB decay/priority + real NC trace + 5L exercised):
-- 5-level Tricache (L1-3 VRAM + real L4 disk LFU syscalls + L5 JSON-LD shards + KGDB) with >=95% hits in runs
-- Minimal functional KGDB with decay/priority (effectiveWeight, traverseDecayed), SPZA fuzzy via weight, wired to L5, exercised in demo
-- Pre-FFN continual thinking hooks + memoizedMul integrated and tested
-- Real GGUF/SVC4 parser ready
-- Real metrics + observable DREAM/LEARN/LANG/hook/NC-TRACE from actual engine execution (wall time, embedded data)
-- Dev/debug pluggable
-- demo-ocean.html has real NC output pane with trace data attr + canvas, renders
-- All builds/tests/bench clean
-- Ports utilized as before + MVP polish
 
-MVP acceptance verified per plan.
+**v0.1.0 MVP** tagged (see [CHANGELOG.md](CHANGELOG.md)):
+
+- 5-level Tricache (L1–L3 VRAM + L4 disk LFU + L5 JSON-LD + KGDB) with ≥95% hits under verify
+- KGDB decay/priority + SPZA fuzzy weight; L5-wired; demo-exercised
+- Pre-FFN hooks + memoizedMul; real metrics (wall clock, IPS, energy, per-level serves)
+- GGUF parser + **honest weight-probe secondary** (not full transformer decode)
+- Agent loop (mock offline + optional live Ollama :11534)
+- C ABI `libaxinc` with `model_register` / `model_infer` success-tested
+- Builds/tests/bench clean on Zig 0.16
 
 ## Next (from reviews + current)
 - Full production KGDB decay e^(-λt) + priority + self-org + fuzzy SPZA hops (core substrate + hot index + traversal present; L5 integration live)

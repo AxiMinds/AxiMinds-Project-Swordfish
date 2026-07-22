@@ -1,5 +1,12 @@
 # AxiMinds Swordfish Development Notes & Agent Context (for VVV, review)
 
+## Release status (2026-07-22)
+
+- **Semver:** `0.1.0` (`VERSION`, tag `v0.1.0`) — first tagged MVP.
+- **Changelog:** root `CHANGELOG.md` (compendious; deferred items explicit).
+- **Shipped:** agent mock + GGUF weight probe + C ABI + Zig 0.16 build; live Ollama optional.
+- **Not in 0.1.0:** full GGUF transformer forward; in-process llama.cpp FFN consumer.
+
 ## Updated Instructions (per 2026-07-05 query)
 - The stripped part (for obfuscate/encrypt) is ONLY necessary at the very last step before production. All other dev/debug suggestions are great and should be used during development. (dev module pluggable gated, error codes, traces, etc. kept for dev; strip/obfuscate/encrypt ONLY final pre-prod build step)
 - Search private GH repos (using MCP grok_com_github) for code that partially or completely completes missing/unimplemented features.

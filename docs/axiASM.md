@@ -1,5 +1,7 @@
 # axiASM Textual Assembler
 
+**Release:** v0.1.0 — used by demo, bench, agent loop (```axiasm blocks), and `axinc_load_axiasm`.
+
 Full assembler for the AxiMinds Neural ISA, built on top of the `lower.zig` expression lowerer (using `std.zig.Ast` in Zig 0.16).
 
 ## Usage in code

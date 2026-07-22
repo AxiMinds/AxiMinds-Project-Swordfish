@@ -21,16 +21,22 @@ Ollama, Qwen, agent loops, FFN hooks, GGUF, and axiNC-related code.
 | [AxiMinds-Project-Infini](https://github.com/AxiMinds/AxiMinds-Project-Infini) | `ollama/ollama_module.py` | Multi-persona Ollama orchestration reference |
 | [AxiMinds-MCP-Inner-Monologue](https://github.com/AxiMinds/AxiMinds-MCP-Inner-Monologue) | `zig-mcp/src/ollama/pool.zig` | Connection pool design for multi-user Ollama |
 
-## What is ready after this port
+## What is ready (v0.1.0)
 
+**Offline (no daemon):**
 ```bash
-# Terminal A
-ollama serve
-ollama pull qwen3.5:0.8b   # or qwen3:8b / whatever you have
+zig build && zig build test
+zig build run -- agent --mock --ticks 2
+```
+
+**Live Ollama** (this host often maps Docker → **:11534**):
+```bash
+# Terminal A — ensure serve + model warm
+ollama serve   # or use host docker on 11534
+ollama pull qwen3.5:0.8b
 
 # Terminal B
-cd /home/idare/dev/AxiMinds-Project-Swordfish
-zig build run -- agent --model qwen3.5:0.8b --ticks 8
+zig build run -- agent --endpoint http://127.0.0.1:11534 --model qwen3.5:0.8B --ticks 8
 ```
 
 Loop: **Ollama(Qwen) → parse ```axiasm → assemble → NC execute → stats feedback → next tick**.

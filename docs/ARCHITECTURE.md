@@ -1,20 +1,82 @@
 # AxiMinds axicore Architecture
 
-See Conv-20260628-1155pm.md for complete conversation, reviews, suggested improvements and iteration history.
+**Version:** see root `VERSION` / `CHANGELOG.md`.  
+**Zig:** 0.16.0 | **ZLS:** 0.16.0
 
-Core idea: Give the inner LLM (hosted in NN) a full native + optimized "computer" (axiNC) with same savings layers as host.
+## Intent
 
-All details, ocean metaphor (sea grass = KGDB priority memories with decay), dream nesting, self modification, SPZA 8D indexing for semantic locality, etc. in the conv log.
+Give the inner LLM a full native neural computer (**axiNC**) with the same savings layers as the host: 5-level cache, shift-add, INT1, SPZA memo, MEP, KGDB, pre-FFN hooks.
 
-Phase 1 (implemented): types + axicore primitives + ISA + ALU + Engine + bridge stub + tests.
-Updated for Zig 0.16.0 + ZLS 0.16.0. Uses `std.zig.Ast` for expression lowering (LANG/Book of Spells support) + `asm` blocks + intrinsics in hot paths (ShiftAdd, hashes, bit ops).
+Ocean metaphor (coral/sea-grass = KGDB memories, fish = models/agents) and full design discussion: `Conv-20260628-1155pm.md`.
 
-Key fixes implemented from reviews:
-* Consistent full pipeline where possible (cachedOp wrapper for MUL etc)
-* Safe PC advance + bounds clamp in engine (prevent common VM bugs)
-* Functional HOOK + DPIX/DBLK stubs + logging
-* loadProgram dynamic
-* Tricache L3 age improvements noted (future hashmap LRU)
-* Demo truthiness concepts noted
+## Layers
 
-Next per checklist: KGDB concrete + decay, CUDA, benchmarks, HTML real integration, 3-dream eval.
+| Layer | Name | Role |
+|-------|------|------|
+| 0 | axicore | INT1 / SPZA / MEP / memo / SIMD / SMURFS + Tricache L1–L5 |
+| 1 | aximodel | GGUF/SVC4 load; ModelHost secondary (probe / Ollama) |
+| 2 | axihw | NEON / RKNN2 / CUDA / WASM dispatch (scalar baseline shipped) |
+| 3 | axillm | Agent loop, pre-FFN hooks, C ABI for external FFN consumers |
+
+## Runtime components
+
+```
+Ollama/Qwen (optional) ──► agent/loop ──► axiASM assemble ──► engine.execute
+                                │                                  │
+                                ▼                                  ▼
+                         ModelHost (GGUF probe / Ollama)     Tricache L1–L5 + KGDB
+                                │
+                         libaxinc.so C ABI (init / ffn_tap / model_infer / stats)
+```
+
+### Core (`src/core/`)
+
+- **types** — memory defaults, canvas, shared enums.
+- **axicore** — Tricache L1–L3 (VRAM), L4 disk LFU (`.axl4`), L5 JSON-LD shards + KGDB edges; INT1, ShiftAdd, MEP, SMURFS.
+- **alu** — `cachedOp` pipeline, `memoizedMul` hook.
+- **engine** — `executeTap`, self-mod (EMIT/LEARN/FUSE/LANG), hooks, stats.
+
+### ISA & assembly
+
+- **opcodes** — 80+ ops + CustomOpcodeRegistry (up to 64 runtime customs).
+- **asm/assembler** — textual axiASM; **asm/lower** — `std.zig.Ast` expressions → ISA (`LOWER Rdst = …`).
+
+### Persistence & knowledge
+
+- **kgdb/** — AXION-32D addresses, append log, hot adjacency index, BFS/DFS traversal; L5 integration.
+- L4/L5 artifacts appear under `l4_cache/`, `l5_shards/` on real runs.
+
+### Models & bridge
+
+- **gguf/** — real GGUF parser (zllama lineage); SVC4 remap helpers.
+- **models/host** — register Ollama or GGUF path; GGUF path does **weight probe** (not full transformer decode in 0.1.0).
+- **bridge/ollama_client** — host HTTP via curl.
+- **bridge_lib** — C ABI root for `libaxinc`.
+
+### Agent
+
+- **agent/loop** — continuous tick: LLM reply → ````axiasm` / ````model` blocks → NC + secondary infer → feedback.
+- CLI: `zig build run -- agent [--mock] [--endpoint URL] [--model NAME] [--ticks N]`.
+
+## Zig 0.16 notes
+
+- Build: `addLibrary` + `createModule`; single test module via main root.
+- Collections: `ArrayList` `.empty` + allocator on mutators.
+- Main: `process.Init` / `process.run` + Io where required.
+- Ast: `Ast.Index` is `enum(u32)` — use `@intFromEnum` for node indexing.
+- Hot paths: portable shift-add; limited `asm` where templates parse cleanly.
+
+## MVP acceptance (0.1.0)
+
+| Criterion | Status |
+|-----------|--------|
+| Build + unit tests | Pass |
+| Offline agent mock | GGUF probe + axiASM (R3=30) |
+| 5L hit rates in verify | ≥95% (isolated test + volume) |
+| C ABI model_infer | Success path tested |
+| Live Ollama | Optional (warm daemon on :11534) |
+| Full GGUF forward | Deferred |
+
+## Next
+
+See README **Next** and CHANGELOG **Deferred**. Full conversation/reviews: `Conv-20260628-1155pm.md`, `DEVELOPMENT_NOTES.md`.

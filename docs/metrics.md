@@ -1,5 +1,7 @@
 # Real-time and Industry AI Metrics
 
+**Release:** v0.1.0 — also see root `CHANGELOG.md`.
+
 The system exposes live metrics for monitoring the neural computer running 24/7.
 
 ## Real-time (day/night)
